@@ -1,0 +1,18 @@
+# Skip local dependencies and build artifacts
+node_modules
+npm-debug.log
+yarn-error.log
+.DS_Store
+
+# Ignore test files and temporary data
+*.test.js
+*.spec.js
+coverage
+.vscode
+.idea
+
+# Ignore environment and build folders
+.env
+.env.local
+dist
+build

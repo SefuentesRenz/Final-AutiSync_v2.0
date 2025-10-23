@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Shuffle Logic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+        pre {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .question-list {
+            list-style: none;
+            padding: 0;
+        }
+        .question-list li {
+            padding: 8px;
+            margin: 5px 0;
+            background: #e3f2fd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎲 Shuffle Logic Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Fisher-Yates Shuffle</h2>
+        <p>This tests that the shuffle algorithm produces different orders each time.</p>
+        <button onclick="testShuffle()">Run Shuffle Test</button>
+        <div id="shuffle-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Cashier Game Questions</h2>
+        <p>This simulates shuffling Cashier Game questions multiple times.</p>
+        <button onclick="testCashierShuffle()">Shuffle Cashier Questions</button>
+        <div id="cashier-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Data Path Verification</h2>
+        <p>This tests that we can access questions using the correct path.</p>
+        <button onclick="testDataPath()">Test Data Path</button>
+        <div id="path-result"></div>
+    </div>
+
+    <script>
+        // Sample Cashier Game questions (matching your data structure)
+        const cashierQuestions = [
+            { questionText: "I want a burger and fries, please!", orderItems: ["Burger", "Fries"] },
+            { questionText: "Can I have a pizza slice and a drink?", orderItems: ["Pizza", "Drink"] },
+            { questionText: "I'll take a hot dog, please!", orderItems: ["Hot Dog"] },
+            { questionText: "I want fries and ice cream, please!", orderItems: ["Fries", "Ice Cream"] },
+            { questionText: "Can I get a burger, fries, and a drink?", orderItems: ["Burger", "Fries", "Drink"] }
+        ];
+
+        // Fisher-Yates shuffle algorithm
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function testShuffle() {
+            const original = [1, 2, 3, 4, 5];
+            const shuffle1 = shuffleArray(original);
+            const shuffle2 = shuffleArray(original);
+            const shuffle3 = shuffleArray(original);
+
+            const resultDiv = document.getElementById('shuffle-result');
+            resultDiv.innerHTML = `
+                <div class="result">
+                    <strong>Original:</strong> [${original.join(', ')}]<br>
+                    <strong>Shuffle 1:</strong> [${shuffle1.join(', ')}]<br>
+                    <strong>Shuffle 2:</strong> [${shuffle2.join(', ')}]<br>
+                    <strong>Shuffle 3:</strong> [${shuffle3.join(', ')}]<br>
+                    <br>
+                    <strong>Test:</strong> ${areArraysDifferent(shuffle1, shuffle2, shuffle3) ? '✅ PASS - All shuffles are different' : '⚠️ WARNING - Some shuffles are identical (can happen randomly)'}
+                </div>
+            `;
+        }
+
+        function areArraysDifferent(arr1, arr2, arr3) {
+            const str1 = JSON.stringify(arr1);
+            const str2 = JSON.stringify(arr2);
+            const str3 = JSON.stringify(arr3);
+            return str1 !== str2 || str2 !== str3;
+        }
+
+        function testCashierShuffle() {
+            const shuffle1 = shuffleArray(cashierQuestions);
+            const shuffle2 = shuffleArray(cashierQuestions);
+            const shuffle3 = shuffleArray(cashierQuestions);
+
+            const resultDiv = document.getElementById('cashier-result');
+            
+            const makeList = (questions, title) => `
+                <strong>${title}:</strong>
+                <ol class="question-list">
+                    ${questions.map(q => `<li>${q.questionText}</li>`).join('')}
+                </ol>
+            `;
+
+            resultDiv.innerHTML = `
+                <div class="result">
+                    ${makeList(cashierQuestions, 'Original Order')}
+                    ${makeList(shuffle1, 'Shuffle 1')}
+                    ${makeList(shuffle2, 'Shuffle 2')}
+                    ${makeList(shuffle3, 'Shuffle 3')}
+                    <strong>First Question Comparison:</strong><br>
+                    Shuffle 1: "${shuffle1[0].questionText}"<br>
+                    Shuffle 2: "${shuffle2[0].questionText}"<br>
+                    Shuffle 3: "${shuffle3[0].questionText}"
+                </div>
+            `;
+        }
+
+        function testDataPath() {
+            // Simulate questionsData structure
+            const questionsData = {
+                "Social / Daily Life Skill": {
+                    "Cashier Game": cashierQuestions,
+                    "Hygiene Hero": [
+                        { scenario: "dirty_hands", questionText: "Your hands are dirty!" }
+                    ]
+                },
+                "Academic": {
+                    "Easy": {
+                        "Identification": [
+                            { questionText: "What animal is this?" }
+                        ]
+                    }
+                }
+            };
+
+            const category = "Social / Daily Life Skill";
+            const activity = "Cashier Game";
+            const difficulty = null; // Social activities don't use difficulty
+
+            // Test correct path
+            let questions = [];
+            if (category === "Social / Daily Life Skill") {
+                questions = questionsData[category]?.[activity] || [];
+            } else {
+                questions = questionsData[category]?.[difficulty]?.[activity] || [];
+            }
+
+            const resultDiv = document.getElementById('path-result');
+            
+            if (questions.length > 0) {
+                resultDiv.innerHTML = `
+                    <div class="result">
+                        <strong>✅ SUCCESS!</strong><br>
+                        Category: ${category}<br>
+                        Activity: ${activity}<br>
+                        Path Used: questionsData["${category}"]["${activity}"]<br>
+                        Questions Found: ${questions.length}<br>
+                        <br>
+                        <strong>Questions:</strong>
+                        <ol class="question-list">
+                            ${questions.map(q => `<li>${q.questionText}</li>`).join('')}
+                        </ol>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>❌ ERROR!</strong><br>
+                        No questions found using the current path.<br>
+                        Check the data structure and path logic.
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
