@@ -392,16 +392,121 @@ const StudentProgress = () => {
                        student?.name || 
                        `Student ${progress.student_id?.substring(0, 8)}`;
     
+    // Resolve category name for a progress item using activity metadata
+    const resolveCategoryNameFromProgress = (progressItem) => {
+      if (!progressItem) return 'Other';
+
+      // If progress already carries a human readable category, prefer it
+      const directCat = progressItem.category || progressItem.categoryName || progressItem.category_name;
+      if (typeof directCat === 'string' && directCat.trim() !== '') {
+        // If it's a common category label, return as-is
+        const label = directCat.trim();
+        const known = ['Academics', 'Academic Skills', 'Academic', 'Daily Life', 'Daily Life Skills', 'Social', 'Social/Daily life skill', 'Social/Daily life skill'];
+        if (known.includes(label)) return label;
+        // if it's a readable word (not a uuid-like hex), return it
+        if (!/^[0-9a-fA-F]{8,}$/.test(label)) return label;
+      }
+
+      // Try to find the activity referenced by this progress entry and get its category
+      const activityRef = progressItem.activityId || progressItem.activity_id || progressItem.activityUUID || progressItem.activity_uuid || progressItem.activity || progressItem.activityTitle || progressItem.activityTitle;
+      if (activityRef && Array.isArray(activities)) {
+        const ref = String(activityRef);
+        const foundAct = activities.find(a => {
+          if (!a) return false;
+          return [a.id, a._id, a.uuid, a.activity_id, a.activityId, a.title, a.name].some(x => x !== undefined && String(x) === ref);
+        });
+        if (foundAct) {
+          // category may be embedded in the activity
+          const catField = foundAct.category || foundAct.categoryName || foundAct.category_name || foundAct.group || foundAct.categoryLabel || foundAct.category_label;
+          if (typeof catField === 'string' && catField.trim()) return catField;
+          if (catField && typeof catField === 'object') return catField.name || catField.title || catField.label || 'Other';
+        }
+      }
+
+      // If there's a numeric/category id on the progress, try to find any activity with that category id
+      const catIdRef = progressItem.categoryId || progressItem.category_id;
+      if (catIdRef && Array.isArray(activities)) {
+        const ref = String(catIdRef);
+        const found = activities.find(a => {
+          if (!a) return false;
+          const aCatId = a.categoryId || a.category_id || (a.category && (a.category.id || a.category._id));
+          return aCatId !== undefined && String(aCatId) === ref;
+        });
+        if (found) {
+          const catField = found.category || found.categoryName || found.category_name;
+          if (typeof catField === 'string' && catField.trim()) return catField;
+          if (catField && typeof catField === 'object') return catField.name || catField.title || 'Other';
+        }
+      }
+
+      // As a last attempt: if progressItem.category is a string and not ID-like, return it
+      if (typeof progressItem.category === 'string' && progressItem.category.trim() && !/^[0-9a-fA-F]{8,}$/.test(progressItem.category)) return progressItem.category;
+
+      return 'Other';
+    };
+
+    // Normalize difficulty into a human label and a color class.
+    const resolveDifficulty = (d) => {
+      // d may be: a human label ('Beginner'), a numeric id (1, 2, 3), or an id string/uuid
+      if (d === undefined || d === null) return { label: 'Beginner', color: 'bg-green-100 text-green-800' };
+
+      // If it's already a human string like 'Beginner' / 'Intermediate' / 'Proficient'
+      const s = String(d).trim();
+      const mapLabels = {
+        '1': 'Beginner',
+        '2': 'Intermediate',
+        '3': 'Proficient',
+        'beginner': 'Beginner',
+        'intermediate': 'Intermediate',
+        'proficient': 'Proficient',
+        'easy': 'Beginner',
+        'medium': 'Intermediate',
+        'hard': 'Proficient'
+      };
+
+      // numeric-like
+      if (/^\d+$/.test(s) && mapLabels[s]) {
+        const label = mapLabels[s];
+        const color = label === 'Beginner' ? 'bg-green-100 text-green-800' : label === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
+        return { label, color };
+      }
+
+      // lowercase match of known words
+      const low = s.toLowerCase();
+      if (mapLabels[low]) {
+        const label = mapLabels[low];
+        const color = label === 'Beginner' ? 'bg-green-100 text-green-800' : label === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
+        return { label, color };
+      }
+
+      // If it's a UUID or other id, attempt to map common numeric ids stored on the progress
+      // Some APIs store difficulty as difficultyId: 1|2|3
+      if (/^[0-9]+$/.test(s)) {
+        const label = mapLabels[s] || 'Beginner';
+        const color = label === 'Beginner' ? 'bg-green-100 text-green-800' : label === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
+        return { label, color };
+      }
+
+      // Fallback: if the value contains words we recognize
+      if (low.includes('begin') || low.includes('easy')) return { label: 'Beginner', color: 'bg-green-100 text-green-800' };
+      if (low.includes('inter') || low.includes('med')) return { label: 'Intermediate', color: 'bg-yellow-100 text-yellow-800' };
+      if (low.includes('prof') || low.includes('hard')) return { label: 'Proficient', color: 'bg-red-100 text-red-800' };
+
+      // Default
+      return { label: 'Beginner', color: 'bg-green-100 text-green-800' };
+    };
+
+    const difficultyRaw = progress.difficultyId ?? progress.difficulty;
+    const difficultyResolved = resolveDifficulty(difficultyRaw);
+
     return {
       title: activityTitle,
       user: studentName,
-      category: progress.categoryId || progress.category || 'Other',
+      category: resolveCategoryNameFromProgress(progress),
       time: new Date(progress.dateCompleted || progress.date_completed).toLocaleString(),
-      difficulty: progress.difficultyId || progress.difficulty || 'Beginner',
+      difficulty: difficultyResolved.label,
       score: progress.score ? `${progress.score}%` : 'No score',
-      difficultyColor: (progress.difficultyId || progress.difficulty) === 'Beginner' ? 'bg-green-100 text-green-800' :
-                      (progress.difficultyId || progress.difficulty) === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800',
+      difficultyColor: difficultyResolved.color,
       avatar: studentName ? studentName.split(' ').map(n => n[0]).join('') : 'S'
     };
   }) || [];
