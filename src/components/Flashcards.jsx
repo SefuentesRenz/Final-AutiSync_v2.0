@@ -925,7 +925,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
             puzzleType: "sequence",
             questionText: "Sequence Puzzle",
             instruction: "What comes next?",
-            sequence: ["🟦", "🔺", "⚪", "?"],
+            sequence: ["🟦", "🔺", "⚪", "...?"],
             options: ["🔺", "🟦", "⚪"],
             correctAnswer: "🟦",
             hint: "Look at the pattern - it repeats!"
@@ -939,12 +939,13 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
             hint: "Fruits are things you can eat!"
           },
           {
-            puzzleType: "logic",
+            puzzleType: "sequence",
             questionText: "Pattern Puzzle",
             instruction: "What come's next?",
-            options: ["⚪", "⭐", "🔺","⚪"],
+            sequence: ["⚪", "⭐", "🔺", "⚪", "...?"],  
+            options: ["⚪", "⭐", "🔺"],
             correctAnswer: "⭐",
-            hint: ""
+            hint: "Look at the pattern - it repeats!"
           },
         ],
         "Visual Memory Challenge": [
@@ -959,7 +960,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
               { id: 3, image: "🚲", name: "Bicycle" },
               { id: 4, image: "✈️", name: "Airplane" }
             ],
-            memorizationTime: 8,
+            memorizationTime: 6,
             shuffleCount: 5
           },
           {
@@ -973,7 +974,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
               { id: 3, image: "🟢", name: "Green Ball" },
               { id: 4, image: "🟡", name: "Yellow Ball" }
             ],
-            memorizationTime: 8,
+            memorizationTime: 6,
             shuffleCount: 5
           },
           {
@@ -987,7 +988,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
               { id: 3, image: "3️⃣", name: "Three" },
               { id: 4, image: "4️⃣", name: "Four" }
             ],
-            memorizationTime: 8,
+            memorizationTime: 6,
             shuffleCount: 5
           }
         ]
@@ -1059,7 +1060,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
 
         Identification: [
           {
-            questionText: "What is the national Animal of the Philippines??", 
+            questionText: "What is the national Animal of the Philippines?", 
             videoSrc: "/assets/flashcards/Identification-Hard/Carabao.mp4",
             answerChoices: ["Carabao", "Cow", "Horse", "Goat"],
             correctAnswer: "Carabao"   
@@ -2304,7 +2305,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       setCurrentQuestionIndex(prev => prev + 1);
       setMemoryGamePhase('memorize');
       setShowMemoryCardFronts(true);
-      setMemoryTimer(12);
+      setMemoryTimer(8);
       setMemoryCardPositions([0, 1, 2, 3]);
       setCurrentTargetCard(null);
       setIsAnswered(false);
@@ -2513,6 +2514,10 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
             console.log('Next scenario:', nextScenario);
             setStreetScenario(nextScenario);
             setCurrentScenario(nextScenario);
+            // Record scenario as used and sync global index
+            setUsedScenarios(prev => Array.from(new Set([...(prev || []), nextScenario.scenario])));
+            const nextIndexInQuestions = questions.findIndex(q => q.scenario === nextScenario.scenario);
+            if (nextIndexInQuestions !== -1) setCurrentQuestionIndex(nextIndexInQuestions);
           }
         } else {
           // End game after 5 rounds
@@ -2543,6 +2548,10 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
             console.log('Next scenario after wrong answer:', nextScenario);
             setStreetScenario(nextScenario);
             setCurrentScenario(nextScenario);
+            // Record scenario as used and sync global index
+            setUsedScenarios(prev => Array.from(new Set([...(prev || []), nextScenario.scenario])));
+            const nextIndexInQuestions = questions.findIndex(q => q.scenario === nextScenario.scenario);
+            if (nextIndexInQuestions !== -1) setCurrentQuestionIndex(nextIndexInQuestions);
           }
         } else {
           // End game after 5 rounds
@@ -2589,6 +2598,15 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     if (firstScenario) {
       setStreetScenario(firstScenario);
       setCurrentScenario(firstScenario);
+      // Mark the scenario as used so it won't be re-selected elsewhere
+      setUsedScenarios([firstScenario.scenario]);
+
+      // Sync the global question index so other UI that relies on it won't show duplicates
+      const firstIndex = questions.findIndex(q => q.scenario === firstScenario.scenario);
+      if (firstIndex !== -1) {
+        setCurrentQuestionIndex(firstIndex);
+      }
+
       console.log('✅ Street game initialized successfully');
     } else {
       console.error('❌ Failed to load first scenario');
@@ -3688,14 +3706,13 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       
       setTimeout(() => {
         setShowCorrect(false);
-        // Auto-proceed for Social / Daily Life Skill activities
-        if (isSocialDailyLifeSkill) {
+        // Auto-proceed for Social / Daily Life Skill activities (except Safe Street Crossing, which manages its own flow)
+        if (isSocialDailyLifeSkill && !isStreetGame) {
           if (currentQuestionIndex < questions.length - 1) {
             setCurrentQuestionIndex(currentQuestionIndex + 1);
             setSelectedAnswer(null);
             setIsAnswered(false);
             resetCashierState();
-            resetStreetState();
             resetMatchingGame();
           } else {
             setShowModal(true);
@@ -3706,14 +3723,13 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       setShowWrong(true);
       setTimeout(() => {
         setShowWrong(false);
-        // Auto-proceed for Social / Daily Life Skill activities
-        if (isSocialDailyLifeSkill) {
+        // Auto-proceed for Social / Daily Life Skill activities (except Safe Street Crossing)
+        if (isSocialDailyLifeSkill && !isStreetGame) {
           if (currentQuestionIndex < questions.length - 1) {
             setCurrentQuestionIndex(currentQuestionIndex + 1);
             setSelectedAnswer(null);
             setIsAnswered(false);
             resetCashierState();
-            resetStreetState();
             resetMatchingGame();
           } else {
             setShowModal(true);
@@ -3735,6 +3751,13 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     setShowCorrect(false);
     setShowWrong(false);
     setShowThoughtBubble(false); // Hide the thought bubble only here
+
+    // If we're in the Safe Street Crossing game, let its own flow manage progression.
+    // Prevent the generic next-click logic from resetting street state or advancing the global index.
+    if (isStreetGame) {
+      console.log('handleNextClick ignored for Safe Street Crossing (use game controls)');
+      return;
+    }
     
     // Handle hygiene game progression (5 rounds max)
     if (isHygieneGame && currentRound < 5) {
@@ -4165,6 +4188,10 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
               <span>
                 {isHygieneGame 
                   ? `Round ${currentRound} of 5`
+                  : isStreetGame
+                  ? `Round ${streetRound} of 5`
+                  : isGreetingsGame
+                  ? `Round ${greetingsRound} of 5`
                   : isChoreGame && currentChoreId
                   ? `Learning: ${questions.find(q => q.choreId === currentChoreId)?.choreName || 'Chore'}`
                   : `Question ${currentQuestionIndex + 1} of ${total}`
@@ -4242,7 +4269,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                         ? "h-10 bg-gradient-to-r from-red-400 to-red-500 text-white border-red-300 scale-105 shadow-2xl"
                         : "h-10 -mb-2 bg-blue-100 hover:bg-blue-200 text-gray-800 border-blue-200/50 hover:border-purple-300/70"
                     } 
-                    text-xl font-bold py-6 px-4 rounded-2xl cursor-pointer transition-all duration-300 border-2 backdrop-blur-sm transform
+                    text-2xl font-bold py-6 px-4 rounded-2xl cursor-pointer transition-all duration-300 border-2 backdrop-blur-sm transform
                     focus:outline-none focus:ring-4 focus:ring-purple-200/50
                     ${!isAnswered ? 'hover:animate-bounce-gentle' : ''}
                     min-h-[4rem] flex items-center justify-center
@@ -5409,7 +5436,6 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                     
                     <h3 className="text-2xl font-bold text-purple-600">Memorize the Cards!👀</h3>
                     <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl p-3 border-3 border-yellow-300 inline-block my-3">
-                      <p className="text-lg font-semibold text-gray-700 mb-2">Remember this card:</p>
                       <div className="text-6xl">{currentTargetCard.image}</div>
                       <p className="text-xl font-bold text-gray-800 mt-1">{currentTargetCard.name}</p>
                     </div>
@@ -5424,7 +5450,6 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                     <div className="text-5xl animate-spin-slow">🔄</div>
                     <h3 className="text-2xl font-bold text-blue-600">Watch the Shuffle!</h3>
                     <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl p-3 border-3 border-yellow-300 inline-block ">
-                      <p className="text-lg font-semibold text-gray-700 mb-1">Find this card:</p>
                       <div className="text-6xl">{currentTargetCard.image}</div>
                       <p className="text-xl font-bold text-gray-800 mt-2">{currentTargetCard.name}</p>
                     </div>

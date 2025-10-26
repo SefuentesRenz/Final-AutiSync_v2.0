@@ -309,8 +309,8 @@ const StudentPage = () => {
               <div className="flex items-center mb-4">
                 <span className="text-3xl mr-3 animate-wiggle">👋</span>
                 <div className="flex">
-                  <h2 className="text-2xl font-bold pt-1 text-gray-800">Welcome, </h2>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  <h2 className="text-2xl font-bold pt-1 text-gray-800">Welcome,  </h2>
+                  <h1 className="ml-2 text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                     {user?.user_metadata?.username || user?.user_metadata?.full_name?.split(' ')[0] || 'User'}!
                   </h1>
                 </div>

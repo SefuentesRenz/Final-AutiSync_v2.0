@@ -566,6 +566,7 @@ const HomePage = () => {
                 controlsList="nodownload"
                 preload="auto"
                 playsInline
+                autoPlay
               >
                 <source src="/VideoTutorial.mp4" type="video/mp4" />
                 Your browser does not support the video tag.

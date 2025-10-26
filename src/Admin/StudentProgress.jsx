@@ -16,6 +16,7 @@ const StudentProgress = () => {
   const [progressStats, setProgressStats] = useState(null);
   const [recentProgress, setRecentProgress] = useState([]);
   const [activities, setActivities] = useState([]);
+  
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -381,8 +382,40 @@ const StudentProgress = () => {
   const difficultyProgression = generateDifficultyProgression(fallbackStudent);
   const badges = generateBadges(fallbackStudent);
 
-  // Use real recent progress data
-  const recentActivitiesDisplay = recentProgress?.slice(0, 6).map((progress, index) => {
+  // Helper: parse date from various possible fields on a progress row
+  const parseProgressDate = (p) => {
+    if (!p) return null;
+    const raw = p.dateCompleted || p.date_completed || p.completed_at || p.created_at || p.updated_at || p.date || p.timestamp || null;
+    if (!raw) return null;
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  // Filter recentProgress by the selected time range
+  const filterRecentProgressByRange = (arr, range) => {
+    if (!Array.isArray(arr)) return [];
+    if (!range || range === 'all') return arr;
+    const days = Number(range);
+    if (isNaN(days) || days <= 0) return arr;
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return arr.filter(p => {
+      const d = parseProgressDate(p);
+      return d && d >= cutoff;
+    });
+  };
+
+  // Use real recent progress data (filtered by selectedTimeRange), ordered newest-first
+  const recentActivitiesDisplay = (filterRecentProgressByRange(recentProgress || [], selectedTimeRange) || [])
+    .slice() // copy
+    .sort((a, b) => {
+      const da = parseProgressDate(a) || 0;
+      const db = parseProgressDate(b) || 0;
+      return db - da;
+    })
+  .slice(0, 6)
+  .map((progress, index) => {
+  
     // Get activity title from the progress data
     const activityTitle = progress.activityTitle || 'Unknown Activity';
     
@@ -498,12 +531,13 @@ const StudentProgress = () => {
 
     const difficultyRaw = progress.difficultyId ?? progress.difficulty;
     const difficultyResolved = resolveDifficulty(difficultyRaw);
+    const dateObj = parseProgressDate(progress) || new Date();
 
-    return {
+  return {
       title: activityTitle,
       user: studentName,
       category: resolveCategoryNameFromProgress(progress),
-      time: new Date(progress.dateCompleted || progress.date_completed).toLocaleString(),
+      time: dateObj.toLocaleString(),
       difficulty: difficultyResolved.label,
       score: progress.score ? `${progress.score}%` : 'No score',
       difficultyColor: difficultyResolved.color,
@@ -595,16 +629,6 @@ const StudentProgress = () => {
           </div>
 
           <div className="flex items-center space-x-4">
-            <select 
-              value={selectedTimeRange}
-              onChange={(e) => setSelectedTimeRange(e.target.value)}
-              className="bg-white border-2 border-gray-200 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
-            >
-              <option value="7">Last 7 days</option>
-              <option value="30">Last 30 days</option>
-              <option value="90">Last 90 days</option>
-            </select>
-            
             <button
               onClick={handleBackToStudents}
               className="cursor-pointer bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold flex items-center space-x-2 transition-all duration-200 transform hover:scale-105 shadow-lg"
@@ -634,8 +658,21 @@ const StudentProgress = () => {
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-800">Recent Activities</h3>
-              <div className="bg-green-100 p-2 rounded-lg">
-                <span className="text-2xl">🕒</span>
+              <div className="flex items-center space-x-2">
+                <div className="bg-green-100 p-2 rounded-lg">
+                  <span className="text-2xl">🕒</span>
+                </div>
+                <select 
+                  value={selectedTimeRange}
+                  onChange={(e) => setSelectedTimeRange(e.target.value)}
+                  className="bg-white border-2 border-gray-200 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                >
+                  <option value="1">Last 24 hours</option>
+                  <option value="7">Last 7 days</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                  <option value="all">All time</option>
+                </select>
               </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -669,6 +706,7 @@ const StudentProgress = () => {
               )}
             </div>
           </div>
+          
         </div>
 
         {/* New Tracking Sections */}
