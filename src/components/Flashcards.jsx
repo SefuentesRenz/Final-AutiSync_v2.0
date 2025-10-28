@@ -916,10 +916,10 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
             puzzleType: "math",
             questionText: "Simple Math Puzzle",
             instruction: "",
-            equation: { first: 2, operator1: "+", second: 1 },
-            options: [2, 3, 4],
-            correctAnswer: 3,
-            hint: "Add 2 and 1 together!"
+            equation: { first: 5, operator1: "+", second: 8},
+            options: [11, 13, 12],
+            correctAnswer: 13,
+            hint: "Add 5 and 8 together!"
           },
           {
             puzzleType: "sequence",
@@ -941,8 +941,9 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
           {
             puzzleType: "logic",
             questionText: "Pattern Puzzle",
-            instruction: "What come's next?",
-            options: ["⚪", "⭐", "🔺","⚪"],
+            instruction: "What comes next ⭐,🔺,⚪,...?",
+            // sequence: ["⭐", "🔺", "⚪", "...?"],
+            options: ["⚪", "⭐", "🔺",],
             correctAnswer: "⭐",
             hint: ""
           },
@@ -1096,10 +1097,10 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
             puzzleType: "math",
             questionText: "Advanced Math Puzzle",
             instruction: "",
-            equation: { first: 5, operator1: "-", second: 2 },
-            options: [2, 3, 4],
-            correctAnswer: 3,
-            hint: "Take away 2 from 5!"
+            equation: { first: 16, operator1: "-", second: 8 },
+            options: [7, 6, 8],
+            correctAnswer: 8,
+            hint: "Take away 8 from 16!"
           },
           {
             puzzleType: "logic",
@@ -1273,7 +1274,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
             background: "🏠 Home Kitchen",
             character: "👩‍🍳",
             characterType: "Parent",
-            studentThought: "I should greet my parent nicely!",
+            studentThought: "I should greet my parent!",
             otherCharacterSpeech: "Good morning, sweetheart!",
             choices: [
               
@@ -1312,7 +1313,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
             character: "👩‍🏫",
             characterType: "Teacher",
             studentThought: "I should be polite to my teacher!",
-            otherCharacterSpeech: "Hello! Welcome to class today!",
+            otherCharacterSpeech: "Hello students!",
             choices: [
               
               {
@@ -1386,11 +1387,11 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
             background: "🎒 School Classroom",
             character: "👩‍🏫",
             characterType: "Teacher",
-            studentThought: "I should say goodbye nicely!",
+            studentThought: "I should say goodbye!",
             otherCharacterSpeech: "See you tomorrow! ",
             choices: [
               {
-                text: "Goodbye Teacher! See you tomorrow!",
+                text: "Goodbye Teacher!",
                 emoji: "👋",
                 correct: true,
                 feedback: "Wonderful! Saying goodbye nicely ends the day on a positive note!"
@@ -1922,7 +1923,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                 roundId: 3,
                 budget: 100,
                 items: [
-                  { id: 9, name: "Ipad", image: "📱", price: 2800, category: "entertainment", affordable: false },
+                  { id: 9, name: "Phone", image: "📱", price: 2800, category: "entertainment", affordable: false },
                   { id: 10, name: "Ice Cream", image: "🍦", price: 30, category: "dessert", affordable: true },
                   { id: 11, name: "Pancake", image: "/assets/pancakes.jpg", price: 15, category: "food", affordable: false, isImagePath: true },
                   { id: 12, name: "Pencil", image: "✏️", price: 10, category: "education", affordable: true }
