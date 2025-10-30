@@ -265,6 +265,8 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   const badgeAudioRef = useRef(null);
   const bgMusicRef = useRef(null);
   const gameContainerRef = useRef(null);
+  // Ref to store the pending timeout ID for street auto-advance so we can cancel it when user clicks Next
+  const streetAdvanceTimeoutRef = useRef(null);
 
   const celebrationSound = "/assets/sounds/Activitycompletion.mp3"; // Place your sound file here
   const correctSound = "/assets/sounds/correct.mp3"; 
@@ -2494,27 +2496,39 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       }
       
       setShowCorrect(true);
-      
-      setTimeout(() => {
+
+      // schedule auto-advance (store timeout id so Next click can cancel it)
+      streetAdvanceTimeoutRef.current = setTimeout(() => {
+        streetAdvanceTimeoutRef.current = null;
         setShowCorrect(false);
         setShowStreetFeedback(false);
         setShowWalkingAnimation(false);
-        
+
         // Move to next round or end game
         if (streetRound < 5) {
           setStreetRound(prev => prev + 1);
           setSelectedAnswer(null);
           setIsAnswered(false);
-          
+
           // Get next scenario from shuffled array
-          const nextIndex = streetScenarioIndex + 1;
-          setStreetScenarioIndex(nextIndex);
-          const nextScenario = shuffledStreetScenarios[nextIndex];
-          if (nextScenario) {
-            console.log('Next scenario:', nextScenario);
-            setStreetScenario(nextScenario);
-            setCurrentScenario(nextScenario);
-          }
+          setStreetScenarioIndex(prevIndex => {
+            const nextIndex = prevIndex + 1;
+            const nextScenario = shuffledStreetScenarios[nextIndex];
+            if (nextScenario) {
+              console.log('Next scenario:', nextScenario);
+              setStreetScenario(nextScenario);
+              setCurrentScenario(nextScenario);
+              setUsedScenarios(prevUsed => [...prevUsed, nextScenario.scenario]);
+
+              // Update generic question index
+              const questionIndex = questions.findIndex(q => q.scenario === nextScenario.scenario);
+              if (questionIndex !== -1) setCurrentQuestionIndex(questionIndex);
+            } else {
+              // fallback: end game
+              setShowModal(true);
+            }
+            return nextIndex;
+          });
         } else {
           // End game after 5 rounds
           console.log('Game complete!');
@@ -2526,25 +2540,36 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       setStreetFeedbackMessage(currentStreetScenario.feedbackMessage || "Not safe! Always check before crossing.");
       setShowWrong(true);
       
-      setTimeout(() => {
+      // schedule auto-advance (store timeout id so Next click can cancel it)
+      streetAdvanceTimeoutRef.current = setTimeout(() => {
+        streetAdvanceTimeoutRef.current = null;
         setShowWrong(false);
         setShowStreetFeedback(false);
-        
+
         // Move to next round or end game even on wrong answer
         if (streetRound < 5) {
           setStreetRound(prev => prev + 1);
           setSelectedAnswer(null);
           setIsAnswered(false);
-          
-          // Get next scenario from shuffled array
-          const nextIndex = streetScenarioIndex + 1;
-          setStreetScenarioIndex(nextIndex);
-          const nextScenario = shuffledStreetScenarios[nextIndex];
-          if (nextScenario) {
-            console.log('Next scenario after wrong answer:', nextScenario);
-            setStreetScenario(nextScenario);
-            setCurrentScenario(nextScenario);
-          }
+
+          // advance scenario index functionally
+          setStreetScenarioIndex(prevIndex => {
+            const nextIndex = prevIndex + 1;
+            const nextScenario = shuffledStreetScenarios[nextIndex];
+            if (nextScenario) {
+              console.log('Next scenario after wrong answer:', nextScenario);
+              setStreetScenario(nextScenario);
+              setCurrentScenario(nextScenario);
+              setUsedScenarios(prevUsed => [...prevUsed, nextScenario.scenario]);
+
+              // Update generic question index
+              const questionIndex = questions.findIndex(q => q.scenario === nextScenario.scenario);
+              if (questionIndex !== -1) setCurrentQuestionIndex(questionIndex);
+            } else {
+              setShowModal(true);
+            }
+            return nextIndex;
+          });
         } else {
           // End game after 5 rounds
           console.log('Game complete after wrong answer!');
@@ -2579,11 +2604,39 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     
     // Shuffle all scenarios and select first 5
     const shuffled = [...allStreetScenarios].sort(() => Math.random() - 0.5);
-    const selectedScenarios = shuffled.slice(0, 5);
+
+    // Ensure we always have exactly 5 scenarios for a play.
+    // If the pool is smaller than 5, cycle through the shuffled list until we reach 5,
+    // avoiding pushing the same scenario twice in a row.
+    const selectedScenarios = [];
+    if (shuffled.length === 0) {
+      console.warn('No street scenarios available for this category');
+    } else {
+      let i = 0;
+      while (selectedScenarios.length < 5) {
+        const candidate = shuffled[i % shuffled.length];
+        const last = selectedScenarios[selectedScenarios.length - 1];
+        // avoid immediate duplicate when cycling
+        if (!last || candidate.scenario !== last.scenario) {
+          selectedScenarios.push(candidate);
+        } else {
+          // try next one in list
+          if (shuffled.length === 1) {
+            // only one available, allow repetition to reach 5
+            selectedScenarios.push(candidate);
+          } else {
+            // advance an extra step to pick a different one
+            i++;
+            continue;
+          }
+        }
+        i++;
+      }
+    }
     setShuffledStreetScenarios(selectedScenarios);
-    console.log('Shuffled and selected 5 scenarios');
-    
-    // Set up first scenario from shuffled selection
+    console.log('Shuffled and prepared 5 scenarios for play');
+
+    // Set up first scenario from selected selection
     const firstScenario = selectedScenarios[0];
     console.log('🎯 First scenario loaded:', firstScenario);
     
@@ -3732,12 +3785,18 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   };
 
   const handleNextClick = () => {
+    // Cancel any pending auto-advance for street game to avoid double-advancing
+    if (streetAdvanceTimeoutRef.current) {
+      clearTimeout(streetAdvanceTimeoutRef.current);
+      streetAdvanceTimeoutRef.current = null;
+    }
+
     // Always hide overlays when moving to next question
     setShowCorrect(false);
     setShowWrong(false);
     setShowThoughtBubble(false); // Hide the thought bubble only here
     
-    // Handle hygiene game progression (5 rounds max)
+  // Handle hygiene game progression (5 rounds max)
     if (isHygieneGame && currentRound < 5) {
       setCurrentRound(prev => prev + 1);
       setSelectedAnswer(null);
@@ -3762,14 +3821,41 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       // End hygiene game after 5 rounds
       setShowModal(true);
     } else if (isStreetGame && streetRound >= 5) {
-      // End street game after 5 rounds (handled in handleStreetAnswer)
-      // Modal is shown automatically in handleStreetAnswer
+      // End street game after 5 rounds - when user clicks Next after Q5, show completion modal
+      setShowModal(true);
+    } else if (isStreetGame && streetRound < 5) {
+      // Advance to next street scenario when player clicks Next
+      setSelectedAnswer(null);
+      setIsAnswered(false);
+      setShowStreetFeedback(false);
+
+      // Increment round and scenario index in a functional way to avoid stale state
+      setStreetRound(prev => prev + 1);
+      setStreetScenarioIndex(prevIndex => {
+        const nextIndex = prevIndex + 1;
+        const nextScenario = shuffledStreetScenarios[nextIndex];
+        if (nextScenario) {
+          setStreetScenario(nextScenario);
+          setCurrentScenario(nextScenario);
+          setUsedScenarios(prevUsed => [...prevUsed, nextScenario.scenario]);
+
+          // Update the generic currentQuestionIndex to point to this scenario's question
+          const questionIndex = questions.findIndex(q => q.scenario === nextScenario.scenario);
+          if (questionIndex !== -1) {
+            setCurrentQuestionIndex(questionIndex);
+          }
+        } else {
+          // Fallback: if nextScenario missing, show modal (end)
+          setShowModal(true);
+        }
+        return nextIndex;
+      });
     } else if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedAnswer(null);
       setIsAnswered(false);
       resetCashierState(); // Reset cashier game state
-      resetStreetState(); // Reset street game state
+      // Do not reset street state here when we're navigating inside the street game
       resetMatchingGame(); // Reset matching game state
     } else {
       setShowModal(true);
@@ -4159,16 +4245,17 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
         <div className="relative z-10 ">
           {/* Question Counter with modern design */}
           <div className="-mt-20 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl px-6 py-1 border border-blue-200/30 inline-block">
-            <div className="text-base font-bold text-gray-700 flex items-center justify-center space-x-2">
+                <div className="text-base font-bold text-gray-700 flex items-center justify-center space-x-2">
               <span className="text-2xl animate-bounce-gentle">
-                {isHygieneGame ? "🧼" : isChoreGame ? "🏠" : "🌟"}
+                {isHygieneGame ? "🧼" : isChoreGame ? "🏠" : isStreetGame ? "🚦" : isMoneyGame ? "💰" : isGreetingsGame ? "👋" : "🌟"}
               </span>
               <span>
-                {isHygieneGame 
-                  ? `Round ${currentRound} of 5`
-                  : isChoreGame && currentChoreId
-                  ? `Learning: ${questions.find(q => q.choreId === currentChoreId)?.choreName || 'Chore'}`
-                  : `Question ${currentQuestionIndex + 1} of ${total}`
+                {isHygieneGame ? `Round ${currentRound} of 5`
+                 : isStreetGame ? `Question ${streetRound} of 5`
+                 : isGreetingsGame ? `Question ${greetingsRound} of 5`
+                 : isMoneyGame ? `Question ${moneyRound} of 3`
+                 : isChoreGame && currentChoreId ? `Learning: ${questions.find(q => q.choreId === currentChoreId)?.choreName || 'Chore'}`
+                 : `Question ${currentQuestionIndex + 1} of ${total}`
                 }
               </span>
               <span className="text-2xl animate-pulse-gentle">✨</span>
