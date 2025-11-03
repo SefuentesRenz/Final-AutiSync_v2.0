@@ -11,6 +11,7 @@ function SignupPage() {
     fullName: '',
     username: '',
     email: '',
+    functionalLevel: '',
     password: '',
     confirmPassword: '',
     age: '',
@@ -141,6 +142,7 @@ function SignupPage() {
           age: parseInt(formData.age) || null,
           birthdate: formData.birthdate || null,
           address: formData.address,
+          functional_level: formData.functionalLevel || null,
           school: null // Can be added later
         };
 
@@ -260,8 +262,8 @@ function SignupPage() {
             AutiSync v2.0
           </h2>
           <div className="bg-gradient-to-r from-green-100 to-blue-100 rounded-2xl p-4 mb-4">
-            <h3 className="text-xl font-bold text-gray-800 mb-2 flex items-center justify-center">
-              <span className="text-2xl mr-2 animate-bounce-gentle">🎉</span>
+            <h3 className="text-lg font-bold text-gray-800 mb-1 flex items-center justify-center">
+              <span className="text-xl mr-2 animate-bounce-gentle">🎉</span>
               Create Your Account!
             </h3>
             <p className="text-gray-600 text-sm">
@@ -294,7 +296,7 @@ function SignupPage() {
             <div className="flex justify-center gap-2">
               <button
                 type="button"
-                className={`px-4 py-3 rounded-xl font-bold border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm shadow-sm flex items-center space-x-2 cursor-pointer ${
+                className={`px-3 py-1 rounded-xl font-bold border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm shadow-sm flex items-center space-x-2 cursor-pointer ${
                   userType === 'student' 
                     ? 'bg-blue-100 border-blue-500 text-blue-900 transform scale-105' 
                     : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
@@ -306,7 +308,7 @@ function SignupPage() {
               </button>
               <button
                 type="button"
-                className={`px-4 py-3 rounded-xl font-bold border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-200 text-sm shadow-sm flex items-center space-x-2 cursor-pointer ${
+                className={`px-3 py-2 rounded-xl font-bold border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-200 text-sm shadow-sm flex items-center space-x-2 cursor-pointer ${
                   userType === 'admin' 
                     ? 'bg-purple-100 border-purple-500 text-purple-900 transform scale-105' 
                     : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
@@ -318,7 +320,7 @@ function SignupPage() {
               </button>
               <button
                 type="button"
-                className={`px-4 py-3 rounded-xl font-bold border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-200 text-sm shadow-sm flex items-center space-x-2 cursor-pointer ${
+                className={`px-3 py-2 rounded-xl font-bold border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-200 text-sm shadow-sm flex items-center space-x-2 cursor-pointer ${
                   userType === 'parent' 
                     ? 'bg-green-100 border-green-500 text-green-900 transform scale-105' 
                     : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
@@ -343,7 +345,7 @@ function SignupPage() {
               name="fullName"
               value={formData.fullName}
               onChange={handleInputChange}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
               placeholder="Enter your full name"
               required
             />
@@ -357,7 +359,7 @@ function SignupPage() {
             </label>
             <div className="flex items-center space-x-4">
               {/* Profile Picture Preview */}
-              <div className="w-20 h-20 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center overflow-hidden">
+              <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center overflow-hidden">
                 {profilePicturePreview ? (
                   <img 
                     src={profilePicturePreview} 
@@ -403,7 +405,7 @@ function SignupPage() {
                 name="username"
                 value={formData.username}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
                 placeholder="Choose a fun username!"
                 required={userType === 'student'}
                 minLength="3"
@@ -425,11 +427,35 @@ function SignupPage() {
               name="email"
               value={formData.email}
               onChange={handleInputChange}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
               placeholder="you@example.com"
               required
             />
           </div>
+
+          {/* Functional Level - only for student signups (placed below Email Address) */}
+          {userType === 'student' && (
+            <div>
+              <label htmlFor="functionalLevel" className="flex items-center text-sm font-bold text-gray-700 mb-2">
+                <span className="text-lg mr-2">🔎</span>
+                Functional level
+              </label>
+              <select
+                id="functionalLevel"
+                name="functionalLevel"
+                value={formData.functionalLevel}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg transition-all duration-300"
+                aria-label="Functional level for student"
+              >
+                <option value="">Select functional level</option>
+                <option value="needs_minimal_support">Needs minimal support</option>
+                <option value="needs_moderate_support">Needs moderate support</option>
+                <option value="needs_substantial_support">Needs substantial support</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Select the level of support the student typically needs.</p>
+            </div>
+          )}
 
           {/* Address Field - For both students and admins */}
           <div>
@@ -443,7 +469,7 @@ function SignupPage() {
               name="address"
               value={formData.address}
               onChange={handleInputChange}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
               placeholder="Enter your address"
               required
             />
@@ -462,7 +488,7 @@ function SignupPage() {
                 name="age"
                 value={formData.age}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
                 placeholder="How old are you?"
                 min="5"
                 max="25"
@@ -486,7 +512,7 @@ function SignupPage() {
                 name="birthdate"
                 value={formData.birthdate}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
                 required={userType === 'student'}
               />
               <p className="text-xs text-gray-500 mt-1">Please enter your date of birth</p>
@@ -504,7 +530,7 @@ function SignupPage() {
               name="gender"
               value={formData.gender}
               onChange={handleInputChange}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg transition-all duration-300"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg transition-all duration-300"
               required
             >
               <option value="">Select your gender</option>
@@ -528,7 +554,7 @@ function SignupPage() {
                 name="phoneNumber"
                 value={formData.phoneNumber}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg placeholder-gray-400 transition-all duration-300"
                 placeholder="+63 912 345 6789"
                 required={userType === 'admin' || userType === 'parent'}
               />
@@ -548,7 +574,7 @@ function SignupPage() {
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg transition-all duration-300"
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg transition-all duration-300"
                 placeholder="Create a strong password"
                 required
               />
@@ -575,7 +601,7 @@ function SignupPage() {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg transition-all duration-300"
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg transition-all duration-300"
                 placeholder="Confirm your password"
                 required
               />

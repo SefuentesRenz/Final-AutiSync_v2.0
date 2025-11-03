@@ -15,6 +15,7 @@ const StudentProfile = () => {
     full_name: '',
     email: '',
     gender: '',
+    functional_level: '',
     address: '',
     birthdate: '',
     achievements: 0,
@@ -45,6 +46,13 @@ const StudentProfile = () => {
     ],
     completionRate: 0
   });
+
+  // Map stored functional level values to human friendly labels
+  const functionalLevelLabels = {
+    needs_minimal_support: 'Needs minimal support',
+    needs_moderate_support: 'Needs moderate support',
+    needs_substantial_support: 'Needs substantial support'
+  };
 
   useEffect(() => {
     if (user) {
@@ -145,6 +153,7 @@ const StudentProfile = () => {
           full_name: existingProfile.full_name || user.user_metadata?.full_name || '',
           email: existingProfile.email || user.email || '',
           gender: existingProfile.gender || user.user_metadata?.gender || '',
+          functional_level: existingProfile.functional_level || user.user_metadata?.functionalLevel || user.user_metadata?.functional_level || '',
           address: existingProfile.address || user.user_metadata?.address || '',
           birthdate: existingProfile.birthdate || existingProfile.birthday || user.user_metadata?.birthdate || user.user_metadata?.birthday || '',
           achievements: existingProfile.achievements || 0,
@@ -267,6 +276,7 @@ const StudentProfile = () => {
       full_name: metadata.full_name || '',
       email: user.email || '',
       gender: metadata.gender || '',
+      functional_level: metadata.functional_level || metadata.functionalLevel || '',
       address: metadata.address || '',
       birthdate: metadata.birthdate || metadata.birthday || '',
       achievements: 0,
@@ -342,6 +352,7 @@ const StudentProfile = () => {
         full_name: metadata.full_name || '',
         email: profileEmail,
         gender: metadata.gender || '',
+        functional_level: metadata.functional_level || metadata.functionalLevel || '',
         address: metadata.address || '',
         birthdate: metadata.birthdate || metadata.birthday || ''
       };
@@ -492,6 +503,7 @@ const StudentProfile = () => {
         full_name: userInfo.full_name,
         email: userInfo.email,
         gender: userInfo.gender,
+        functional_level: userInfo.functional_level,
         address: userInfo.address,
         birthdate: userInfo.birthdate
       };
@@ -863,6 +875,29 @@ const StudentProfile = () => {
                   </select>
                 ) : (
                   <p className="text-gray-800 font-medium">{userInfo.gender || 'Not provided'}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Functional Level */}
+            <div className="flex items-center p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-2xl border border-amber-200/50">
+              <span className="text-2xl mr-4">🔎</span>
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-700">Functional level</label>
+                {isEditing ? (
+                  <select
+                    name="functional_level"
+                    value={userInfo.functional_level}
+                    onChange={handleInputChange}
+                    className="w-full bg-transparent border-b border-amber-400 focus:outline-none text-gray-800 py-1"
+                  >
+                    <option value="">Select functional level</option>
+                    <option value="needs_minimal_support">Needs minimal support</option>
+                    <option value="needs_moderate_support">Needs moderate support</option>
+                    <option value="needs_substantial_support">Needs substantial support</option>
+                  </select>
+                ) : (
+                  <p className="text-gray-800 font-medium">{functionalLevelLabels[userInfo.functional_level] || 'Not provided'}</p>
                 )}
               </div>
             </div>
