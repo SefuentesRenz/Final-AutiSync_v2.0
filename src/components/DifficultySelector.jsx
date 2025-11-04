@@ -1,8 +1,16 @@
 import React from 'react';
 import { useButtonSounds } from '../utils/useButtonSounds';
+import { useAuth } from '../contexts/AuthContext';
+import { useActivityUnlock } from '../hooks/useActivityUnlock';
 
 const DifficultySelector = ({ onSelectDifficulty, onJoinFriend, selectedCategory, onGoBack }) => {
   const { getButtonSoundHandlers } = useButtonSounds();
+  const { user } = useAuth();
+  
+  // Get unlock status for current student (only for Academic category)
+  // Note: We don't use this in DifficultySelector anymore since all difficulties are always selectable
+  // The actual locking happens at the activity level in ActivitySelectorModal
+  const { user: authUser } = useAuth();
 
   return (
   <div className="bg-gradient-to-br -mt-10 from-blue-50 via-purple-50 to-pink-50 rounded-3xl shadow-2xl p-10 border border-white/20 relative overflow-hidden mx-auto w-270">
@@ -53,36 +61,33 @@ const DifficultySelector = ({ onSelectDifficulty, onJoinFriend, selectedCategory
 
     
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      {/* Beginner - Always Available */}
       <button 
-        className="bg-white/80 backdrop-blur-xl border-2 border-green-200 hover:border-green-400 rounded-3xl shadow-xl hover:shadow-2xl p-8 flex flex-col items-center justify-center transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-green-300 cursor-pointer " 
+        className="bg-white/80 backdrop-blur-xl border-2 border-green-200 hover:border-green-400 rounded-3xl shadow-xl hover:shadow-2xl p-8 flex flex-col items-center justify-center transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-green-300 cursor-pointer relative" 
         {...getButtonSoundHandlers(() => onSelectDifficulty("Beginner"))}
       >
         <div className="text-7xl mb-4">😊</div>
-
         <div className="font-bold text-2xl text-green-700 mb-2">Beginner</div>
-
         <div className="text-base text-gray-600 text-center">Perfect for beginners!</div>
       </button>
       
+      {/* Intermediate - Always Available (activities inside will be locked) */}
       <button 
-        className="bg-white/80 backdrop-blur-xl border-2 border-orange-200 hover:border-orange-400 rounded-3xl shadow-xl hover:shadow-2xl p-8 flex flex-col items-center justify-center transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-orange-300 cursor-pointer " 
+        className="bg-white/80 backdrop-blur-xl border-2 border-orange-200 hover:border-orange-400 rounded-3xl shadow-xl hover:shadow-2xl p-8 flex flex-col items-center justify-center transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-orange-300 cursor-pointer relative"
         {...getButtonSoundHandlers(() => onSelectDifficulty("Intermediate"))}
       >
         <div className="text-7xl mb-4">🤔</div>
-
         <div className="font-bold text-2xl text-orange-700 mb-2">Intermediate</div>
-
         <div className="text-base text-gray-600 text-center">A fun challenge!</div>
       </button>
       
+      {/* Proficient - Always Available (activities inside will be locked) */}
       <button 
-        className="bg-white/80 backdrop-blur-xl border-2 border-red-200 hover:border-red-400 rounded-3xl shadow-xl hover:shadow-2xl p-8 flex flex-col items-center justify-center transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-red-300 cursor-pointer " 
+        className="bg-white/80 backdrop-blur-xl border-2 border-red-200 hover:border-red-400 rounded-3xl shadow-xl hover:shadow-2xl p-8 flex flex-col items-center justify-center transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-red-300 cursor-pointer relative"
         {...getButtonSoundHandlers(() => onSelectDifficulty("Proficient"))}
       >
         <div className="text-7xl mb-4">💪</div>
-
         <div className="font-bold text-2xl text-red-700 mb-2">Proficient</div>
-
         <div className="text-base text-gray-600 text-center">For experts like you!</div>
       </button>
     </div>

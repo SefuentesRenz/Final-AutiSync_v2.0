@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useButtonSounds } from '../utils/useButtonSounds';
+import { useAuth } from '../contexts/AuthContext';
+import { useActivityUnlock } from '../hooks/useActivityUnlock';
 
 const activities = [
   { 
@@ -124,8 +126,23 @@ const activities = [
   },
 ];
 
-const ActivitySelectorModal = ({ isOpen, onClose, onSelect, selectedCategory }) => {
+const ActivitySelectorModal = ({ isOpen, onClose, onSelect, selectedCategory, selectedDifficulty }) => {
   const { getButtonSoundHandlers } = useButtonSounds();
+  const { user } = useAuth();
+  
+  // Get unlock status for Academic category activities
+  const { isUnlocked, loading, refreshUnlockStatus } = useActivityUnlock(
+    user?.id,
+    selectedCategory === 'Academic' ? 'Academic' : null
+  );
+  
+  // Refresh unlock status when modal opens
+  useEffect(() => {
+    if (isOpen && selectedCategory === 'Academic') {
+      console.log('🔄 Refreshing unlock status as modal opened');
+      refreshUnlockStatus();
+    }
+  }, [isOpen, selectedCategory]);
   
   if (!isOpen) return null;
 
@@ -133,6 +150,26 @@ const ActivitySelectorModal = ({ isOpen, onClose, onSelect, selectedCategory }) 
   const filteredActivities = activities.filter(activity => 
     activity.category === selectedCategory
   );
+  
+  // Check if an activity is locked
+  const isActivityLocked = (activityName) => {
+    // Only Academic activities can be locked
+    if (selectedCategory !== 'Academic') {
+      console.log(`🔓 ${activityName} unlocked (not Academic category)`);
+      return false;
+    }
+    
+    // While loading, show as locked temporarily
+    if (loading) {
+      console.log(`⏳ ${activityName} locked (still loading unlock status)`);
+      return true;
+    }
+    
+    // Check unlock status based on selected difficulty
+    const unlocked = isUnlocked(activityName, selectedDifficulty || 'Beginner');
+    console.log(`🔒 Checking ${activityName} at ${selectedDifficulty}: ${unlocked ? 'UNLOCKED ✅' : 'LOCKED 🔒'}`);
+    return !unlocked;
+  };
 
   return (
     <div className="fixed inset-0 bg-black/10 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -157,46 +194,73 @@ const ActivitySelectorModal = ({ isOpen, onClose, onSelect, selectedCategory }) 
         {/* Activities Grid - Single Row */}
         <div className="p-1">
           <div className="grid grid-cols-1 gap-1">
-            {filteredActivities.map((activity) => (
+            {filteredActivities.map((activity) => {
+              const locked = isActivityLocked(activity.name);
+              
+              return (
               <button
                 key={activity.id}
                 {...getButtonSoundHandlers(() => {
-                  onSelect(activity.name);
-                  onClose();
+                  if (!locked) {
+                    onSelect(activity.name);
+                    onClose();
+                  }
                 })}
+                disabled={locked}
                 className={`
-                  ${activity.bgColor} ${activity.hoverColor}
-                  cursor-pointer rounded-2xl h-25 shadow-lg hover:shadow-xl
-                  transition-all duration-300 transform hover:scale-105
-                  border-2 border-white/50 hover:border-white
+                  ${locked ? 'bg-gray-100/60 opacity-60 cursor-not-allowed' : `${activity.bgColor} ${activity.hoverColor} cursor-pointer`}
+                  rounded-2xl h-25 shadow-lg hover:shadow-xl
+                  transition-all duration-300 transform ${!locked && 'hover:scale-105'}
+                  border-2 ${locked ? 'border-gray-300' : 'border-white/50 hover:border-white'}
                   group relative overflow-hidden
                 `}
               >
+                {/* Lock Icon for Locked Activities */}
+                {locked && (
+                  <div className="absolute top-2 right-2 text-2xl animate-pulse z-10">
+                    🔒
+                  </div>
+                )}
+                
                 {/* Background Decoration */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className=" absolute top-2 right-2 w-4 h-4 bg-white/30 rounded-full animate-pulse"></div>
-                  <div className="absolute bottom-4 left-4 w-3 h-3 bg-white/20 rounded-full animate-bounce"></div>
-                </div>
+                {!locked && (
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className=" absolute top-2 right-2 w-4 h-4 bg-white/30 rounded-full animate-pulse"></div>
+                    <div className="absolute bottom-4 left-4 w-3 h-3 bg-white/20 rounded-full animate-bounce"></div>
+                  </div>
+                )}
 
                 {/* Icon */}
                 <div className={`
-                  w-12 h-12 bg-gradient-to-r ${activity.color} 
+                  w-12 h-12 ${locked ? 'bg-gray-400' : `bg-gradient-to-r ${activity.color}`}
                   rounded-2xl mx-auto mb-1 flex items-center justify-center
-                  shadow-lg group-hover:shadow-xl transform group-hover:scale-110
+                  shadow-lg ${!locked && 'group-hover:shadow-xl transform group-hover:scale-110'}
                   transition-all duration-300
                 `}>
                   <span className="text-2xl text-white">{activity.icon}</span>
                 </div>
 
                 {/* Activity Name */}
-                <h3 className="text-lg font-bold text-gray-800 group-hover:text-gray-900 transition-colors duration-200">
+                <h3 className={`text-lg font-bold ${locked ? 'text-gray-500' : 'text-gray-800 group-hover:text-gray-900'} transition-colors duration-200`}>
                   {activity.name}
                 </h3>
+                
+                {/* Lock Message */}
+                {locked && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {selectedDifficulty === 'Intermediate' 
+                      ? 'Complete Beginner with 100% first!' 
+                      : 'Complete Intermediate with 100% first!'}
+                  </p>
+                )}
 
                 {/* Hover Effect */}
-                <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+                {!locked && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+                )}
               </button>
-            ))}
+              );
+            })}
           </div>
 
         </div>

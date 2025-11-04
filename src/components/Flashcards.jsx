@@ -4022,6 +4022,34 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   const handleFinish = async () => {
     setShowModal(false);
     
+    // Record score to student_scores table for unlock logic (only for Academic category)
+    if (category === 'Academic' && user?.id && activity) {
+      try {
+        const { recordStudentScore } = await import('../lib/studentScoresApi');
+        
+        // Calculate total questions based on activity type
+        let totalQs = total;
+        if (isHygieneGame || isStreetGame) {
+          totalQs = 5;
+        } else if (isMemoryGame || activity === "Visual Memory Challenge") {
+          totalQs = 3; // Memory game has 3 rounds
+        }
+        
+        await recordStudentScore(
+          user.id,
+          activity,
+          category,
+          difficulty,
+          score,
+          totalQs
+        );
+        
+        console.log('✅ Score recorded for unlock logic');
+      } catch (err) {
+        console.error('Failed to record score for unlock:', err);
+      }
+    }
+    
     // Calculate earned badges with enhanced statistics
     let badges = calculateSessionBadges(score, total);
     
