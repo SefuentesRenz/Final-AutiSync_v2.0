@@ -22,6 +22,7 @@ import AddActivity from './Admin/AddActivity';
 import Tracking from './Admin/Tracking';
 import AdminProfile from './Admin/AdminProfile.jsx';
 import AlarmingEmotions from './Admin/AlarmingEmotions.jsx';
+import PendingAccounts from './Admin/PendingAccounts.jsx';
 
 
 // Working Parent pages
@@ -57,6 +58,7 @@ function App() {
           <Route path="/tracking" element={<ErrorBoundary fallback={<div style={{padding:'20px'}}>Error loading Tracking page - check console for details</div>}><Tracking /></ErrorBoundary>} />
           <Route path="/adminprofile" element={<AdminProfile />} />
           <Route path="/alarmingemotions" element={<AlarmingEmotions />} />
+          <Route path="/pending-accounts" element={<PendingAccounts />} />
           
           {/* These routes are temporarily disabled - will fix Students/StudentProgress components */}
           <Route path="/admin/students" element={<ErrorBoundary fallback={<div style={{padding:'20px'}}>Error loading Students page</div>}><Students /></ErrorBoundary>} />

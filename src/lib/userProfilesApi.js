@@ -12,7 +12,9 @@ export async function createUserProfile({
   birthdate,
   address,
   school,
-  phone_number
+  phone_number,
+  role,
+  account_status
 }) {
   try {
     // Use only essential fields - no firstname/lastname, just full_name
@@ -29,6 +31,9 @@ export async function createUserProfile({
     if (address) profileData.address = address;
     if (gender) profileData.gender = gender;
     if (school) profileData.school = school;
+    if (phone_number) profileData.phone_number = phone_number;
+    if (role) profileData.role = role;
+    if (account_status) profileData.account_status = account_status;
 
     // Remove null/undefined values to avoid insert issues
     Object.keys(profileData).forEach(key => {

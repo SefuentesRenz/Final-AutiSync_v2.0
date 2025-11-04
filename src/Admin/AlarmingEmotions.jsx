@@ -359,15 +359,19 @@ const AlarmingEmotions = () => {
               </h1>
             </div>
             
-            <nav className="hidden md:flex space-x-8">
+          <nav className="hidden md:flex space-x-8">
                     <a href="/tracking" className="text-gray-600 text-lg hover:text-blue-600 font-semibold  transition-colors">
                       Dashboard
                     </a>
                     <a href="/activities" className="text-gray-600 text-lg hover:text-blue-600 font-semibold  transition-colors">
                       Activities
                     </a>
+                    
                     <a href="/alarmingemotions" className="text-gray-600 text-lg hover:text-blue-600 font-semibold transition-colors">
                       Expression Wall
+                    </a>
+                    <a href="/pending-accounts" className="text-gray-600 text-lg hover:text-blue-600 font-semibold transition-colors flex items-center">
+                      Pending Accounts
                     </a>
                   </nav>
             

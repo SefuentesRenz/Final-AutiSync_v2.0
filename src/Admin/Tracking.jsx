@@ -830,15 +830,17 @@ const Tracking = () => {
       {/* Header */}
       <header className="bg-white shadow-lg border-b-4 border-blue-500">
               <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center py-4">
+                <div className="flex justify-between items-center py-1">
                   <div className="flex items-center space-x-4">
-                    <div className="bg-blue-600 text-white rounded-xl">
-                      <AcademicCapIcon className="w-6 h-6" />
-                    </div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                      AutiSync
-                    </h1>
-                  </div>
+              <img
+                  src="/assets/logo.png"
+                  alt="AutiSync Logo"
+                  className="w-16 h-16 object-contain"
+                />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                AutiSync v2.0
+              </h1>
+            </div>
                   
                   <nav className="hidden md:flex space-x-8">
                     <a href="/tracking" className="text-gray-600 text-lg hover:text-blue-600 font-semibold  transition-colors">
@@ -849,6 +851,9 @@ const Tracking = () => {
                     </a>
                     <a href="/alarmingemotions" className="text-gray-600 text-lg hover:text-blue-600 font-semibold transition-colors">
                       Expression Wall
+                    </a>
+                    <a href="/pending-accounts" className="text-gray-600 text-lg hover:text-blue-600 font-semibold transition-colors flex items-center">
+                      Pending Accounts
                     </a>
                   </nav>
                   

@@ -195,21 +195,56 @@ function SignupPage() {
         }
 
       } else if (userType === 'admin') {
-        // For admins: Create admin record directly (no user_profile)
+        // For admins: Create user_profile with pending status AND admin record
+        
+        // Generate unique username from email (since admin form doesn't have username field)
+        const emailUsername = formData.email.split('@')[0]; // Get part before @
+        const uniqueUsername = `${emailUsername}_${Date.now()}`; // Add timestamp for uniqueness
+        
+        // Step 1: Create user_profile with pending status
+        const profileData = {
+          user_id: userId,
+          full_name: formData.fullName,
+          username: uniqueUsername, // Auto-generated from email
+          email: formData.email,
+          role: 'admin',
+          account_status: 'pending', // Requires approval from existing admin
+          phone_number: formData.phoneNumber,
+          address: formData.address
+        };
+
+        console.log('Creating admin user profile with pending status:', profileData);
+        const { data: profileResult, error: profileError } = await createUserProfile(profileData);
+        
+        if (profileError) {
+          console.error('Error creating admin user profile:', profileError);
+          
+          if (profileError.code === 'FK_CONSTRAINT_VIOLATION_RETRY_FAILED') {
+            setError(`Account created but profile setup is taking longer than expected. Please wait a moment and try logging in with your credentials, or refresh this page and try again.`);
+          } else if (profileError.code === '23505' || profileError.message?.includes('duplicate key')) {
+            setError(`Username already exists. Please try again with a different username.`);
+          } else {
+            setError(`Failed to create admin profile: ${profileError.message}`);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Step 2: Create admin record
         const adminData = {
-          user_id: userId, // Direct reference to auth user
+          user_id: userId,
           full_name: formData.fullName,
           email: formData.email,
           phone_number: formData.phoneNumber,
           address: formData.address,
-          department: formData.department || 'General', // Default department
+          department: formData.department || 'General',
           permissions: {
             can_view_students: true,
             can_edit_students: false,
             can_delete_students: false,
             can_view_reports: true,
             can_manage_activities: false
-          } // Default permissions
+          }
         };
 
         console.log('Creating admin record with data:', adminData);
@@ -222,14 +257,19 @@ function SignupPage() {
         }
       }
 
-      // Success
-      setSuccess("Account created successfully! Please check your email to verify your account.");
+      // Success - Different messages based on user type
+      if (userType === 'admin') {
+        setSuccess("Admin account created successfully! Your account is pending approval. An existing administrator will review and approve your account before you can log in. Please check your email to verify your account.");
+      } else {
+        setSuccess("Account created successfully! Please check your email to verify your account.");
+      }
+      
       console.log('Signup successful - all records created:', authData);
       
       // Optionally redirect after a delay
       setTimeout(() => {
         navigate("/loginpage");
-      }, 3000);
+      }, 4000);
 
     } catch (error) {
       console.error('Signup error:', error);

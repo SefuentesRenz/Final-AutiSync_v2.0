@@ -38,11 +38,11 @@ export function ChatProvider({ children }) {
       
       console.log('✅ Auth user found:', user.email);
       
-      // Get user_profiles id from auth user (using id field since it references auth.users.id)
+      // Get user_profiles id from auth user (using user_id field since it references auth.users.id)
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('id, username, full_name')
-        .eq('id', user.id)
+        .select('user_id, username, full_name')
+        .eq('user_id', user.id)
         .single();
       
       if (profileError) {
@@ -51,9 +51,9 @@ export function ChatProvider({ children }) {
       }
       
       if (profile) {
-        setCurrentUserId(profile.id);
+        setCurrentUserId(profile.user_id);
         console.log('✅ Current user profile loaded:', profile.full_name || profile.username);
-        console.log('   Profile ID:', profile.id);
+        console.log('   Profile ID:', profile.user_id);
       } else {
         console.error('❌ No user profile found for user_id:', user.id);
       }

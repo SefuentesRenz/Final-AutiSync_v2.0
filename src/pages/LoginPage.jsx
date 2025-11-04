@@ -86,8 +86,42 @@ function LoginPage() {
       // Login successful
       console.log('Login successful:', data);
       
-      // Redirect based on user type
+      // Check account status for admin/teacher accounts
       if (userType === "admin") {
+        console.log('Checking admin account approval status...');
+        
+        // Check if this admin account has been approved
+        const { data: profileData, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('account_status, role, full_name')
+          .eq('user_id', data.user.id)
+          .single();
+        
+        if (profileError) {
+          console.error('Error checking account status:', profileError);
+          // If no profile exists, allow login (backwards compatibility)
+          console.warn('No user profile found - allowing login for backwards compatibility');
+        } else if (profileData) {
+          console.log('Account status check:', profileData);
+          
+          // Check account status
+          if (profileData.account_status === 'pending') {
+            console.log('❌ Login blocked - account is pending approval');
+            setError('🔒 Your account is pending approval. Please wait for an administrator to approve your account before you can log in.');
+            await supabase.auth.signOut(); // Sign them out
+            setLoading(false);
+            return;
+          } else if (profileData.account_status === 'rejected') {
+            console.log('❌ Login blocked - account was rejected');
+            setError('❌ Your account has been rejected. Please contact support for more information.');
+            await supabase.auth.signOut(); // Sign them out
+            setLoading(false);
+            return;
+          } else {
+            console.log('✅ Account approved - allowing login');
+          }
+        }
+        
         navigate("/tracking"); // Redirect admin to tracking page
       } else if (userType === "parent") {
         navigate("/parent-homepage"); // Redirect parent to parent homepage
