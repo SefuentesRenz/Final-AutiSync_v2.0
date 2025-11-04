@@ -1,0 +1,138 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                     🛠️  STUDENT PROFILE FIX - QUICK GUIDE                 ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  ❌ PROBLEM:                                                              │
+│  "Could not find the 'functional_level' column of 'user_profiles'"      │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  ✅ SOLUTION: Run SQL Migration Script                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+╔═════════════════════════════════════════════════════════════════════════╗
+║  📝 STEP-BY-STEP INSTRUCTIONS                                            ║
+╠═════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  1️⃣  Open Supabase Dashboard                                             ║
+║     → Go to your Supabase project                                        ║
+║                                                                           ║
+║  2️⃣  Navigate to SQL Editor                                              ║
+║     → Click "SQL Editor" in left sidebar                                 ║
+║                                                                           ║
+║  3️⃣  Open Migration File                                                 ║
+║     → File: database/add_functional_level_column.sql                     ║
+║                                                                           ║
+║  4️⃣  Copy & Paste Script                                                 ║
+║     → Copy entire file content                                           ║
+║     → Paste into SQL Editor                                              ║
+║                                                                           ║
+║  5️⃣  Execute Script                                                      ║
+║     → Click "Run" button (or Ctrl + Enter)                               ║
+║                                                                           ║
+║  6️⃣  Verify Success                                                      ║
+║     → Look for: "✓ functional_level column setup complete!"              ║
+║                                                                           ║
+║  7️⃣  Test the Fix                                                        ║
+║     → Refresh application (Ctrl + F5)                                    ║
+║     → Login as student                                                   ║
+║     → Go to Student Profile                                              ║
+║     → Click Edit → Change data → Save                                    ║
+║     → ✅ Should save without errors!                                      ║
+║                                                                           ║
+╚═════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  📊 WHAT GETS ADDED:                                                     │
+│                                                                          │
+│  Column Name:     functional_level                                       │
+│  Data Type:       text                                                   │
+│  Valid Values:    • needs_minimal_support                                │
+│                   • needs_moderate_support                               │
+│                   • needs_substantial_support                            │
+│                   • '' (empty)                                           │
+│  Index:           ✅ Created for better performance                       │
+│  Constraints:     ✅ CHECK constraint for valid values only              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  🎯 EXPECTED RESULT:                                                     │
+│                                                                          │
+│  BEFORE: ❌ Error when saving student profile                            │
+│  AFTER:  ✅ Student can edit and save profile successfully               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  📂 FILES CREATED:                                                       │
+│                                                                          │
+│  ✅ database/add_functional_level_column.sql    (Migration script)       │
+│  ✅ COMPLETE_SETUP.sql                          (Updated)                │
+│  ✅ FIX_STUDENT_PROFILE_EDITING.md              (Detailed guide)         │
+│  ✅ STUDENT_PROFILE_FIX_SUMMARY.md              (Summary doc)            │
+│  ✅ STUDENT_PROFILE_FIX_QUICK.txt               (This file)              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  ⏱️  TIME REQUIRED:                                                       │
+│                                                                          │
+│  • Running migration: ~30 seconds                                        │
+│  • Testing fix: ~2 minutes                                               │
+│  • Total: ~5 minutes                                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  🔍 VERIFY COLUMN EXISTS (Optional):                                     │
+│                                                                          │
+│  Run this query in SQL Editor:                                           │
+│                                                                          │
+│  SELECT column_name, data_type                                           │
+│  FROM information_schema.columns                                         │
+│  WHERE table_name = 'user_profiles'                                      │
+│  AND column_name = 'functional_level';                                   │
+│                                                                          │
+│  Expected: One row showing the column                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+╔═════════════════════════════════════════════════════════════════════════╗
+║  ⚠️  IMPORTANT NOTES:                                                     ║
+╠═════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  • This fix is REQUIRED for student profile editing to work              ║
+║  • The functional_level field tracks autism support levels               ║
+║  • After migration, refresh your browser completely (Ctrl + Shift + R)   ║
+║  • No code changes needed - only database migration                      ║
+║  • Safe to run - script checks if column exists first                    ║
+║                                                                           ║
+╚═════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  📞 TROUBLESHOOTING:                                                     │
+│                                                                          │
+│  Issue: Still getting error after migration                              │
+│  Fix:   1. Hard refresh browser (Ctrl + Shift + R)                       │
+│         2. Verify column exists with query above                         │
+│         3. Check Supabase logs for errors                                │
+│                                                                          │
+│  Issue: Permission denied                                                │
+│  Fix:   Make sure you're logged in as database admin in Supabase         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+╔═════════════════════════════════════════════════════════════════════════╗
+║  ✅ SUCCESS CHECKLIST:                                                    ║
+╠═════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  [ ] Opened Supabase SQL Editor                                          ║
+║  [ ] Ran add_functional_level_column.sql script                          ║
+║  [ ] Saw success message: "✓ functional_level column setup complete!"    ║
+║  [ ] Refreshed application in browser                                    ║
+║  [ ] Logged in as student                                                ║
+║  [ ] Navigated to Student Profile page                                   ║
+║  [ ] Clicked Edit button                                                 ║
+║  [ ] Changed some profile data                                           ║
+║  [ ] Clicked Save Profile button                                         ║
+║  [ ] ✅ Profile saved successfully without errors!                        ║
+║                                                                           ║
+╚═════════════════════════════════════════════════════════════════════════╝
+
+                          🎉 READY TO FIX! 🎉

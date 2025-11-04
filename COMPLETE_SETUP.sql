@@ -57,7 +57,26 @@ BEGIN
     END IF;
 END $$;
 
--- Step 4: Set default values for existing records
+-- Step 4: Add functional_level column (for student autism support tracking)
+-- ============================================================================
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'user_profiles' 
+        AND column_name = 'functional_level'
+    ) THEN
+        ALTER TABLE public.user_profiles 
+        ADD COLUMN functional_level text 
+        CHECK (functional_level IN ('needs_minimal_support', 'needs_moderate_support', 'needs_substantial_support', ''));
+        RAISE NOTICE '✓ Added functional_level column';
+    ELSE
+        RAISE NOTICE '✓ functional_level column already exists';
+    END IF;
+END $$;
+
+-- Step 5: Set default values for existing records
 -- ============================================================================
 UPDATE public.user_profiles 
 SET role = 'student' 
@@ -67,7 +86,7 @@ UPDATE public.user_profiles
 SET account_status = 'approved' 
 WHERE account_status IS NULL;
 
--- Step 5: Update roles based on related tables
+-- Step 6: Update roles based on related tables
 -- ============================================================================
 -- Set role='admin' for users in admins table
 UPDATE public.user_profiles up
@@ -81,7 +100,7 @@ SET role = 'parent', account_status = 'approved'
 FROM public.parents p
 WHERE up.user_id = p.user_id;
 
--- Step 6: Create indexes for better performance
+-- Step 7: Create indexes for better performance
 -- ============================================================================
 CREATE INDEX IF NOT EXISTS idx_user_profiles_role 
 ON public.user_profiles(role);
@@ -92,7 +111,10 @@ ON public.user_profiles(account_status);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id 
 ON public.user_profiles(user_id);
 
--- Step 7: Verify the setup
+CREATE INDEX IF NOT EXISTS idx_user_profiles_functional_level 
+ON public.user_profiles(functional_level);
+
+-- Step 8: Verify the setup
 -- ============================================================================
 
 -- Check if required columns exist
@@ -103,12 +125,13 @@ SELECT
 FROM information_schema.columns 
 WHERE table_schema = 'public' 
 AND table_name = 'user_profiles'
-AND column_name IN ('phone_number', 'role', 'account_status')
+AND column_name IN ('phone_number', 'role', 'account_status', 'functional_level')
 ORDER BY 
     CASE column_name
         WHEN 'phone_number' THEN 1
         WHEN 'role' THEN 2
         WHEN 'account_status' THEN 3
+        WHEN 'functional_level' THEN 4
     END;
 
 -- Show current data distribution
@@ -131,14 +154,16 @@ SELECT
 -- 1. Added phone_number column to user_profiles
 -- 2. Added role column (student/teacher/admin/parent)
 -- 3. Added account_status column (pending/approved/rejected)
--- 4. Set existing records to 'student' role and 'approved' status
--- 5. Updated admin/parent roles based on existing data
--- 6. Created indexes for better query performance
--- 7. Verified all columns were added successfully
+-- 4. Added functional_level column (student autism support tracking)
+-- 5. Set existing records to 'student' role and 'approved' status
+-- 6. Updated admin/parent roles based on existing data
+-- 7. Created indexes for better query performance
+-- 8. Verified all columns were added successfully
 --
 -- NEXT STEPS:
 -- 1. Refresh your Supabase dashboard
 -- 2. Test admin signup at /signuppage
 -- 3. Check pending accounts at /pending-accounts
 -- 4. Approve/reject test accounts
+-- 5. Test student profile editing with functional_level field
 -- ============================================================================

@@ -39,25 +39,33 @@ export default function AdminProfile() {
       try {
         console.log('Fetching admin profile for user:', user.id);
         
-        // Get admin profile data from admins table
+        // First, get user_profiles data (has birthday, gender, etc.)
+        const { data: profileData, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Error fetching user profile:', profileError);
+        }
+        
+        // Then get admin-specific data from admins table
         const { data: adminData, error: adminError } = await getAdminByUserId(user.id);
         
-        if (adminError && adminError.code !== 'PGRST116') { // PGRST116 = no rows returned
-          console.error('Error fetching admin profile:', adminError);
-          setError('Failed to load admin profile data');
-          setLoading(false);
-          return;
+        if (adminError && adminError.code !== 'PGRST116') {
+          console.error('Error fetching admin data:', adminError);
         }
 
-        // Use admin data if available, otherwise use auth user data
+        // Combine data from both tables, prioritizing user_profiles for personal info
         const formattedProfile = {
-          fullName: adminData?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin User",
-          email: adminData?.email || user.email || "",
-          phone: adminData?.phone_number || "",
-          birthday: "", // Admin table doesn't have birthday
-          address: adminData?.address || "",
-          gender: "", // Admin table doesn't have gender
-          username: user.user_metadata?.username || user.email?.split('@')[0] || "",
+          fullName: profileData?.full_name || adminData?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin User",
+          email: profileData?.email || adminData?.email || user.email || "",
+          phone: profileData?.phone_number || adminData?.phone_number || "",
+          birthday: profileData?.birthdate || "",
+          address: profileData?.address || adminData?.address || "",
+          gender: profileData?.gender || "",
+          username: profileData?.username || user.user_metadata?.username || user.email?.split('@')[0] || "",
           department: adminData?.department || "General",
           permissions: adminData?.permissions || {},
           profileImage: "/assets/kidprofile1.jpg"
@@ -109,37 +117,60 @@ export default function AdminProfile() {
     if (!user) return;
     
     setSaving(true);
-    setError(null); // Clear any previous errors
+    setError(null);
     
     try {
-      // Prepare update data for admins table
-      const updateData = {
+      // Update user_profiles table (for personal info like birthday, gender)
+      const profileUpdateData = {
+        full_name: userInfo.fullName,
+        address: userInfo.address,
+        phone_number: userInfo.phone,
+        birthdate: userInfo.birthday,
+        gender: userInfo.gender
+      };
+
+      console.log('Updating user_profiles with user_id:', user.id);
+      console.log('Profile update data:', profileUpdateData);
+
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .update(profileUpdateData)
+        .eq('user_id', user.id);
+      
+      if (profileError) {
+        console.error('Error updating user profile:', profileError);
+        setError(`Failed to update profile: ${profileError.message}`);
+        setUserInfo(originalUserInfo);
+        setSaving(false);
+        return;
+      }
+
+      // Update admins table (for admin-specific data)
+      const adminUpdateData = {
         full_name: userInfo.fullName,
         address: userInfo.address,
         phone_number: userInfo.phone,
         department: userInfo.department,
         permissions: userInfo.permissions
-        // Note: email updates need special handling with Supabase auth
       };
 
-      console.log('Updating admin profile with user_id:', user.id);
-      console.log('Update data:', updateData);
+      console.log('Updating admins table with user_id:', user.id);
+      console.log('Admin update data:', adminUpdateData);
 
-      const { data, error } = await updateAdminByUserId(user.id, updateData);
+      const { data: adminData, error: adminError } = await updateAdminByUserId(user.id, adminUpdateData);
       
-      if (error) {
-        console.error('Error updating admin profile:', error);
-        setError(`Database error: ${error.message}`);
-        // Revert to original data
+      if (adminError) {
+        console.error('Error updating admin data:', adminError);
+        setError(`Failed to update admin data: ${adminError.message}`);
         setUserInfo(originalUserInfo);
       } else {
-        console.log('Admin profile updated successfully:', data);
-        setOriginalUserInfo(userInfo); // Update the baseline
+        console.log('Profile updated successfully');
+        setOriginalUserInfo(userInfo);
         setIsEditing(false);
         setError(null);
       }
     } catch (err) {
-      console.error('Unexpected error saving admin profile:', err);
+      console.error('Unexpected error saving profile:', err);
       setError(`Failed to save profile changes: ${err.message}`);
       setUserInfo(originalUserInfo);
     } finally {
