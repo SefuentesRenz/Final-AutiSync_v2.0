@@ -3,9 +3,9 @@ import { supabase } from './supabase';
 import { checkAndAwardBadges } from './badgesApi';
 
 // Record activity completion and score
-export async function recordActivityProgress(studentId, activityId, score, completionStatus = 'completed') {
+export async function recordActivityProgress(studentId, activityId, score, completionStatus = 'completed', difficultyId = null) {
   try {
-    console.log('🔄 Recording activity progress:', { studentId, activityId, score, completionStatus });
+    console.log('🔄 Recording activity progress:', { studentId, activityId, score, completionStatus, difficultyId });
 
     // Validate inputs
     if (!studentId) {
@@ -62,14 +62,22 @@ export async function recordActivityProgress(studentId, activityId, score, compl
     if (existingProgress) {
       // Update existing progress
       console.log('📝 Updating existing progress...');
+      const updateData = {
+        score: score,
+        completion_status: completionStatus,
+        student_name: studentName,
+        date_completed: new Date().toISOString()
+      };
+      
+      // Add difficulty_id if provided
+      if (difficultyId) {
+        updateData.difficulty_id = difficultyId;
+        console.log('📝 Including difficulty_id in update:', difficultyId);
+      }
+      
       const { data, error } = await supabase
   .from('user_activity_progress')
-        .update({
-          score: score,
-          completion_status: completionStatus,
-          student_name: studentName,
-          date_completed: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('user_id', studentId) // Use user_id not student_id
         .eq('activity_id', activityId)
         .select();
@@ -87,6 +95,13 @@ export async function recordActivityProgress(studentId, activityId, score, compl
         student_name: studentName,
         date_completed: new Date().toISOString()
       };
+      
+      // Add difficulty_id if provided
+      if (difficultyId) {
+        progressRecord.difficulty_id = difficultyId;
+        console.log('➕ Including difficulty_id in insert:', difficultyId);
+      }
+      
       console.log('📋 Progress record to insert:', progressRecord);
       
       const { data, error } = await supabase
@@ -260,17 +275,19 @@ export async function getAllStudentsProgress() {
     console.log('📊 User IDs to fetch:', userIds);
     console.log('📊 User profiles fetched:', userProfiles);
 
-    // Get activities separately
+    // Get activities separately - INCLUDE difficulty_id
     const activityIds = [...new Set(progressRecords.map(record => record.activity_id))];
     const { data: activities, error: activitiesError } = await supabase
       .from('activities')
-      .select('id, title, category_id')
+      .select('id, title, category_id, difficulty_id')
       .in('id', activityIds);
 
     if (activitiesError) {
       console.error('Error fetching activities:', activitiesError);
       // Continue without activity data
     }
+
+    console.log('📊 Activities with difficulty:', activities);
 
     // Get categories separately
     const categoryIds = activities ? [...new Set(activities.map(activity => activity.category_id).filter(Boolean))] : [];
@@ -286,6 +303,25 @@ export async function getAllStudentsProgress() {
       }
     }
 
+    // Get difficulties separately - Collect from BOTH progress records AND activities
+    const progressDifficultyIds = [...new Set(progressRecords.map(record => record.difficulty_id).filter(Boolean))];
+    const activityDifficultyIds = activities ? [...new Set(activities.map(activity => activity.difficulty_id).filter(Boolean))] : [];
+    const difficultyIds = [...new Set([...progressDifficultyIds, ...activityDifficultyIds])];
+    
+    let difficulties = [];
+    if (difficultyIds.length > 0) {
+      const { data: difficultiesData, error: difficultiesError } = await supabase
+        .from('Difficulties')
+        .select('id, difficulty')
+        .in('id', difficultyIds);
+      
+      if (!difficultiesError) {
+        difficulties = difficultiesData || [];
+      }
+    }
+
+    console.log('📊 Difficulties fetched (from progress + activities):', difficulties);
+
     // Process the data to group by student
     const studentProgressMap = {};
     
@@ -295,8 +331,17 @@ export async function getAllStudentsProgress() {
       const activity = activities?.find(a => a.id === record.activity_id);
       const category = categories?.find(c => c.id === activity?.category_id);
       
+      // PRIORITY: Use difficulty from progress record first, then fallback to activity's default
+      const difficultyId = record.difficulty_id || activity?.difficulty_id;
+      const difficulty = difficulties?.find(d => d.id === difficultyId);
+      
       console.log('🔍 Processing record for student:', studentId);
       console.log('🔍 Found user profile:', userProfile);
+      console.log('🔍 Activity:', activity?.title);
+      console.log('🔍 Progress Difficulty ID:', record.difficulty_id);
+      console.log('🔍 Activity Default Difficulty ID:', activity?.difficulty_id);
+      console.log('🔍 Final Difficulty ID used:', difficultyId);
+      console.log('🔍 Difficulty Name:', difficulty?.difficulty);
       
       const studentName = userProfile ? 
         userProfile.full_name || userProfile.username :
@@ -322,6 +367,7 @@ export async function getAllStudentsProgress() {
         activityId: record.activity_id,
         activityTitle: activity?.title || 'Unknown Activity',
         categoryId: category?.category_name || 'Other',
+        difficultyId: difficulty?.difficulty || null,  // Add difficulty name here
         score: record.score,
         completionStatus: record.completion_status,
         dateCompleted: record.date_completed

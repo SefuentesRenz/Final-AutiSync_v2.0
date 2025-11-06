@@ -4,9 +4,9 @@ import { checkAndAwardBadges } from './badgesApi';
 import { updateStreak, testStreakSystem } from './streaksApi';
 
 // Main function to handle activity completion
-export async function handleActivityCompletion(studentId, activityId, score, completionStatus = 'completed') {
+export async function handleActivityCompletion(studentId, activityId, score, completionStatus = 'completed', difficultyId = null) {
   try {
-    console.log('Handling activity completion:', { studentId, activityId, score, completionStatus });
+    console.log('Handling activity completion:', { studentId, activityId, score, completionStatus, difficultyId });
 
     const results = {
       progress: null,
@@ -21,7 +21,8 @@ export async function handleActivityCompletion(studentId, activityId, score, com
       studentId, 
       activityId, 
       score, 
-      completionStatus
+      completionStatus,
+      difficultyId  // Pass difficulty to recordActivityProgress
     );
 
     if (progressError) {

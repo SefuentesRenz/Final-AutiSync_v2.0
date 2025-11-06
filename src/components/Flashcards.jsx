@@ -7,6 +7,7 @@ import {
   getBadgeAchievementMessage 
 } from '../utils/badgeSystem';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 // Optimized Video Component
 const OptimizedVideo = memo(({ src, className, autoPlay, loop, muted, controls, style }) => {
@@ -3987,18 +3988,53 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
           mappedActivityId: activityId
         });
         
+        // Get the difficulty UUID from the difficulty string
+        const getDifficultyId = async (difficultyString) => {
+          console.log('🎯 getDifficultyId called with:', difficultyString);
+          console.log('🎯 Category:', category);
+          
+          if (!difficultyString || category === 'Social / Daily Life Skill' || category === 'Social/Daily Life') {
+            console.log('🎯 Returning null - no difficulty for Social/Daily Life or empty string');
+            return null; // No difficulty for Social/Daily Life activities
+          }
+          
+          try {
+            console.log('🎯 Fetching difficulty UUID from database...');
+            const { data, error } = await supabase
+              .from('Difficulties')
+              .select('id')
+              .eq('difficulty', difficultyString)
+              .single();
+            
+            if (error) {
+              console.error('❌ Error fetching difficulty ID:', error);
+              return null;
+            }
+            
+            console.log('🎯 Found difficulty ID:', data?.id, 'for difficulty:', difficultyString);
+            return data?.id;
+          } catch (err) {
+            console.error('❌ Error in getDifficultyId:', err);
+            return null;
+          }
+        };
+        
+        const difficultyId = await getDifficultyId(difficulty);
+        
         console.log('🚀 Calling handleActivityCompletion with:', {
           studentId: user.id,
           activityId,
           score: scorePercentage,
-          status: 'completed'
+          status: 'completed',
+          difficultyId: difficultyId
         });
         
         const result = await handleActivityCompletion(
           user.id, // studentId (using current user's ID)
           activityId, // activityId 
           scorePercentage, // score (as percentage)
-          'completed' // completion status
+          'completed', // completion status
+          difficultyId // difficulty UUID
         );
         
         console.log('✅ Activity completion result:', result);

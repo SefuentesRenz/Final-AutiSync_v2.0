@@ -610,17 +610,59 @@ const Tracking = () => {
     progressData.students.forEach(student => {
       if (student.activities && student.activities.length > 0) {
         student.activities.slice(0, 2).forEach(activity => {
+          console.log('🎮 ===== RECENT ACTIVITY DEBUG =====');
+          console.log('🎮 Activity Title:', activity.activityTitle);
+          console.log('🎮 Category:', activity.categoryId);
+          console.log('🎮 Difficulty Value:', activity.difficultyId);
+          console.log('🎮 Difficulty Type:', typeof activity.difficultyId);
+          console.log('🎮 Difficulty is null?:', activity.difficultyId === null);
+          console.log('🎮 Difficulty is undefined?:', activity.difficultyId === undefined);
+          console.log('🎮 Full activity object:', activity);
+
+          // Check if this is a Social/Daily Life Skills activity (they don't have difficulty)
+          const categoryName = activity.categoryId || '';
+          const isSocialDailyLife = categoryName.toLowerCase().includes('social') || 
+                                     categoryName.toLowerCase().includes('daily') || 
+                                     categoryName.toLowerCase().includes('life');
+          
+          console.log('🎮 Is Social/Daily Life?:', isSocialDailyLife);
+          
+          // Determine difficulty display
+          let difficultyDisplay;
+          let difficultyColor;
+          
+          if (isSocialDailyLife) {
+            // Social/Daily Life Skills activities show "N/A"
+            console.log('🎮 Showing N/A because: Social/Daily Life category');
+            difficultyDisplay = 'N/A';
+            difficultyColor = 'bg-gray-100 text-gray-600';
+          } else if (activity.difficultyId) {
+            // Academic activities show actual difficulty level
+            console.log('🎮 Showing actual difficulty:', activity.difficultyId);
+            difficultyDisplay = activity.difficultyId;
+            difficultyColor = activity.difficultyId === 'Beginner' ? 'bg-green-100 text-green-800' :
+                            activity.difficultyId === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
+                            activity.difficultyId === 'Proficient' ? 'bg-red-100 text-red-800' :
+                            'bg-green-100 text-green-800'; // default to Beginner color
+          } else {
+            // Fallback for activities without difficulty
+            console.log('🎮 Showing N/A because: No difficulty value found (null or undefined)');
+            difficultyDisplay = 'N/A';
+            difficultyColor = 'bg-gray-100 text-gray-600';
+          }
+
+          console.log('🎮 Final difficulty display:', difficultyDisplay);
+          console.log('🎮 ===== END DEBUG =====');
+
           recentActivities.push({
             title: activity.activityTitle || 'Unknown Activity',
             user: student.studentName || 'Unknown Student',
-            // category: activity.categoryId || 'Other',
+            category: categoryName || 'Other',
             time: new Date(activity.dateCompleted).toLocaleString(),
-            difficulty: activity.difficultyId || 'Beginner',
+            difficulty: difficultyDisplay,
             score: activity.score ? `${activity.score}%` : 'No score',
-            difficultyColor: activity.difficultyId === 'Beginner' ? 'bg-green-100 text-green-800' :
-                            activity.difficultyId === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800',
-            avatar: (student.student?.user_profiles?.username || 'U').substring(0, 2).toUpperCase()
+            difficultyColor: difficultyColor,
+            avatar: (student.student?.user_profiles?.username || student.studentName || 'U').substring(0, 2).toUpperCase()
           });
         });
       }
