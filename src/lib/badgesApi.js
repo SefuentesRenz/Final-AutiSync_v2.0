@@ -294,11 +294,24 @@ export async function checkAndAwardBadges(studentId) {
       // ACADEMIC ACTIVITY BADGES (Difficulty-Based)
       else if (criteria.activity === 'identification' && criteria.difficulty && criteria.count) {
         // Identification badges: Skill Spotter, Recognition Rookie, Recognition Pro
-        const identificationActivities = progress.filter(p => 
-          (p.activities?.title?.toLowerCase().includes('identification') ||
-           p.activities?.category?.toLowerCase().includes('identification')) &&
-          p.activities?.difficulty === criteria.difficulty
-        );
+        const identificationActivities = progress.filter(p => {
+          const titleMatch = p.activities?.title?.toLowerCase().includes('identification');
+          const categoryMatch = p.activities?.category?.toLowerCase().includes('identification');
+          const difficultyMatch = p.activities?.difficulty === criteria.difficulty;
+          
+          // Log detailed matching info for debugging
+          if (titleMatch || categoryMatch) {
+            console.log(`🔍 Identification activity found:`, {
+              title: p.activities?.title,
+              category: p.activities?.category,
+              difficulty: p.activities?.difficulty,
+              requiredDifficulty: criteria.difficulty,
+              matches: difficultyMatch
+            });
+          }
+          
+          return (titleMatch || categoryMatch) && difficultyMatch;
+        });
         shouldAward = identificationActivities.length >= criteria.count;
         console.log(`🏆 Identification (${criteria.difficulty}) check: count=${identificationActivities.length}, required=${criteria.count}, award=${shouldAward}`);
       }
