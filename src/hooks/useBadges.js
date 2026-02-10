@@ -1,6 +1,7 @@
 // src/hooks/useBadges.js
 import { useState, useEffect } from 'react';
 import { checkAndAwardBadges, getStudentBadges } from '../lib/badgesApi';
+import { supabase } from '../lib/supabase';
 
 export const useBadges = (studentId) => {
   const [badges, setBadges] = useState([]);
@@ -52,6 +53,34 @@ export const useBadges = (studentId) => {
   useEffect(() => {
     if (studentId) {
       fetchStudentBadges();
+      
+      // Set up real-time subscription for badge updates
+      console.log('🔔 Setting up real-time badge subscription for student:', studentId);
+      const channel = supabase
+        .channel(`badges-${studentId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+            schema: 'public',
+            table: 'student_badges',
+            filter: `student_id=eq.${studentId}`
+          },
+          (payload) => {
+            console.log('🔔 Real-time badge update received:', payload);
+            // Refresh badges when any change occurs
+            fetchStudentBadges();
+          }
+        )
+        .subscribe((status) => {
+          console.log('🔔 Real-time badge subscription status:', status);
+        });
+      
+      // Cleanup subscription on unmount
+      return () => {
+        console.log('🔔 Unsubscribing from badge updates');
+        supabase.removeChannel(channel);
+      };
     }
   }, [studentId]);
 

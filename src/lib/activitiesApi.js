@@ -12,7 +12,16 @@ export async function createActivity({
   is_active = true,
   badges,
   icon_url,
-  criteria
+  criteria,
+  activity_type,
+  Categories_id,
+  Difficulties_id,
+  points,
+  image_url,
+  is_activity,
+  participants,
+  icon,
+  color
 }) {
   const { data, error } = await supabase
     .from('activities')
@@ -26,7 +35,16 @@ export async function createActivity({
       is_active,
       badges,
       icon_url,
-      criteria
+      criteria,
+      activity_type,
+      Categories_id,
+      Difficulties_id,
+      points,
+      image_url,
+      is_activity,
+      participants,
+      icon,
+      color
     }])
     .select();
   return { data, error };

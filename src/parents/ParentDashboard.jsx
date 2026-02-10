@@ -69,6 +69,10 @@ const ParentDashboard = () => {
       console.log('ParentDashboard: About to load activities for child user_id:', selectedChild.user_id);
       loadChildActivities(selectedChild.user_id);
     }
+    if (selectedChild?.user_id && currentView === 'badges') {
+      console.log('ParentDashboard: Loading badges for child user_id:', selectedChild.user_id);
+      loadChildProgressData(selectedChild.user_id); // This loads badges, streak, and progress
+    }
   }, [selectedChild, currentView, emotionTimeFilter]); // Added emotionTimeFilter dependency
 
   // Calculate time range based on filter
@@ -357,7 +361,6 @@ const ParentDashboard = () => {
           { id: '2f73958d-d18c-4135-96bd-c65ca554a207', title: 'Academic Star', description: 'Complete 5 academic activities.' },
           { id: 'c0e0441c-0688-4a4c-bd82-fad73c4392c1', title: 'Color Master', description: 'Complete 2 color activities in different difficulty levels.' },
           { id: '55544bd9-53a5-42ac-bee8-c6b05632dfff', title: 'Match Finder', description: 'Finish a matching type activity.' },
-          { id: '027f2d92-6a2f-4f07-bda5-aaced096eb00', title: 'Shape Explorer', description: 'Complete 2 shape activities.' },
           { id: 'd1ec22b8-9c28-44a4-9ee6-851b30948140', title: 'Number Ninja', description: 'Complete at least 1 number flashcard activity.' },
           { id: '899d3e1b-6a3f-4c88-b52c-4960bb6f0201', title: 'Consistency Champ', description: 'Complete 3 activities in different types.' },
           { id: '9e1e1566-6aec-479b-9f42-456e0c248386', title: 'High Achiever', description: 'Complete 5 activities with 80%+ average score.' },
@@ -374,7 +377,6 @@ const ParentDashboard = () => {
             { id: '2f73958d-d18c-4135-96bd-c65ca554a207', title: 'Academic Star', description: 'Complete 5 academic activities.' },
             { id: 'c0e0441c-0688-4a4c-bd82-fad73c4392c1', title: 'Color Master', description: 'Complete 2 color activities in different difficulty levels.' },
             { id: '55544bd9-53a5-42ac-bee8-c6b05632dfff', title: 'Match Finder', description: 'Finish a matching type activity.' },
-            { id: '027f2d92-6a2f-4f07-bda5-aaced096eb00', title: 'Shape Explorer', description: 'Complete 2 shape activities.' },
             { id: 'd1ec22b8-9c28-44a4-9ee6-851b30948140', title: 'Number Ninja', description: 'Complete at least 1 number flashcard activity.' },
             { id: '899d3e1b-6a3f-4c88-b52c-4960bb6f0201', title: 'Consistency Champ', description: 'Complete 3 activities in different types.' },
             { id: '9e1e1566-6aec-479b-9f42-456e0c248386', title: 'High Achiever', description: 'Complete 5 activities with 80%+ average score.' },
@@ -644,32 +646,6 @@ const ParentDashboard = () => {
                     <div className="text-sm text-gray-600">Badges earned</div>
                   </div>
                 </div>
-
-                {/* Student Progress */}
-                {childProgress && selectedChild && (
-                  <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
-                    <h3 className="text-xl font-bold text-gray-800 mb-6">Student Progress</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg flex items-center justify-center">
-                            <span className="text-blue-600 font-semibold">{(selectedChild.full_name || selectedChild.username).charAt(0)}</span>
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-800">{selectedChild.full_name || selectedChild.username}</div>
-                            <div className="text-sm text-gray-500">{childProgress.completedActivities}/{childProgress.totalActivities} activities completed</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-green-600">
-                            {childProgress.averageScore}%
-                          </div>
-                          <div className="text-sm text-gray-500">Avg Score</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Activity Progress Section - Box Placeholder */}
                 {selectedChild && (
@@ -1055,7 +1031,16 @@ const ParentDashboard = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {allBadges.map((badge) => {
+                  {allBadges
+                    .sort((a, b) => {
+                      const aEarned = childBadges.some(cb => cb.badge_id === a.id);
+                      const bEarned = childBadges.some(cb => cb.badge_id === b.id);
+                      // Sort: earned badges first, then locked badges
+                      if (aEarned && !bEarned) return -1;
+                      if (!aEarned && bEarned) return 1;
+                      return 0;
+                    })
+                    .map((badge) => {
                     const isEarned = childBadges.some(cb => cb.badge_id === badge.id);
                     const earnedBadge = childBadges.find(cb => cb.badge_id === badge.id);
                     
@@ -1066,7 +1051,6 @@ const ParentDashboard = () => {
                       'Academic Star': '📖',
                       'Color Master': '🎨',
                       'Match Finder': '🧩',
-                      'Shape Explorer': '🔷',
                       'Number Ninja': '🔢',
                       'Consistency Champ': '📅',
                       'High Achiever': '🏅',
@@ -1080,7 +1064,6 @@ const ParentDashboard = () => {
                       'Academic Star': isEarned ? 'from-blue-50 to-indigo-50 border-blue-200' : 'from-gray-50 to-gray-100 border-gray-200',
                       'Color Master': isEarned ? 'from-purple-50 to-pink-50 border-purple-200' : 'from-gray-50 to-gray-100 border-gray-200',
                       'Match Finder': isEarned ? 'from-pink-50 to-rose-50 border-pink-200' : 'from-gray-50 to-gray-100 border-gray-200',
-                      'Shape Explorer': isEarned ? 'from-blue-50 to-cyan-50 border-blue-200' : 'from-gray-50 to-gray-100 border-gray-200',
                       'Number Ninja': isEarned ? 'from-green-50 to-lime-50 border-green-200' : 'from-gray-50 to-gray-100 border-gray-200',
                       'Consistency Champ': isEarned ? 'from-indigo-50 to-purple-50 border-indigo-200' : 'from-gray-50 to-gray-100 border-gray-200',
                       'High Achiever': isEarned ? 'from-orange-50 to-red-50 border-orange-200' : 'from-gray-50 to-gray-100 border-gray-200',

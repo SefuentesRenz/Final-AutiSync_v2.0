@@ -83,50 +83,75 @@ function LoginPage() {
         return;
       }
 
-      // Login successful
-      console.log('Login successful:', data);
+      // Login successful - now verify user has account in correct role table
+      console.log('Auth login successful, verifying role...');
+      const userId = data.user.id;
       
-      // Check account status for admin/teacher accounts
+      // CRITICAL: Verify user exists in the correct table for their selected login type
       if (userType === "admin") {
-        console.log('Checking admin account approval status...');
+        console.log('Verifying admin account...');
         
-        // Check if this admin account has been approved
-        const { data: profileData, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('account_status, role, full_name')
-          .eq('user_id', data.user.id)
+        // Check if user exists in admins table
+        const { data: adminData, error: adminError } = await supabase
+          .from('admins')
+          .select('full_name')
+          .eq('user_id', userId)
           .single();
         
-        if (profileError) {
-          console.error('Error checking account status:', profileError);
-          // If no profile exists, allow login (backwards compatibility)
-          console.warn('No user profile found - allowing login for backwards compatibility');
-        } else if (profileData) {
-          console.log('Account status check:', profileData);
-          
-          // Check account status
-          if (profileData.account_status === 'pending') {
-            console.log('❌ Login blocked - account is pending approval');
-            setError('🔒 Your account is pending approval. Please wait for an administrator to approve your account before you can log in.');
-            await supabase.auth.signOut(); // Sign them out
-            setLoading(false);
-            return;
-          } else if (profileData.account_status === 'rejected') {
-            console.log('❌ Login blocked - account was rejected');
-            setError('❌ Your account has been rejected. Please contact support for more information.');
-            await supabase.auth.signOut(); // Sign them out
-            setLoading(false);
-            return;
-          } else {
-            console.log('✅ Account approved - allowing login');
-          }
+        if (adminError || !adminData) {
+          console.error('❌ User tried to login as admin but no admin record exists');
+          setError('❌ This account is not registered as an Admin/Teacher. Please select the correct account type.');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
         }
         
-        navigate("/tracking"); // Redirect admin to tracking page
+        // TEMPORARY: Account approval check removed - all admins can login immediately
+        console.log('✅ Admin account verified');
+        navigate("/tracking");
+        
       } else if (userType === "parent") {
-        navigate("/parent-homepage"); // Redirect parent to parent homepage
+        console.log('Verifying parent account...');
+        
+        // Check if user exists in parents table
+        const { data: parentData, error: parentError } = await supabase
+          .from('parents')
+          .select('full_name')
+          .eq('user_id', userId)
+          .single();
+        
+        if (parentError || !parentData) {
+          console.error('❌ User tried to login as parent but no parent record exists');
+          setError('❌ This account is not registered as a Parent. Please select the correct account type.');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+        
+        console.log('✅ Parent account verified');
+        navigate("/parent-homepage");
+        
       } else {
-        navigate("/home"); // Redirect student to home page
+        // Student login
+        console.log('Verifying student account...');
+        
+        // Check if user exists in user_profiles table (students only)
+        const { data: studentData, error: studentError } = await supabase
+          .from('user_profiles')
+          .select('full_name, username')
+          .eq('user_id', userId)
+          .single();
+        
+        if (studentError || !studentData) {
+          console.error('❌ User tried to login as student but no student record exists');
+          setError('❌ This account is not registered as a Student. Please select the correct account type.');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+        
+        console.log('✅ Student account verified');
+        navigate("/home");
       }
     } catch (error) {
       console.error('Login error:', error);

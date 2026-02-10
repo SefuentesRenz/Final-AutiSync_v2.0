@@ -79,6 +79,49 @@ function SignupPage() {
       return;
     }
 
+    // STEP 0: Check for duplicate email and full name across ALL tables (case-insensitive, cross-role)
+    try {
+      console.log('Checking for duplicate email and full name (case-insensitive, cross-role)...');
+      
+      // Check email in all three tables (case-insensitive)
+      const emailChecks = await Promise.all([
+        supabase.from('user_profiles').select('email').ilike('email', formData.email.trim()).limit(1),
+        supabase.from('admins').select('email').ilike('email', formData.email.trim()).limit(1),
+        supabase.from('parents').select('email').ilike('email', formData.email.trim()).limit(1)
+      ]);
+
+      const emailExists = emailChecks.some(result => result.data && result.data.length > 0);
+      
+      if (emailExists) {
+        setError("❌ This email is already registered. Please use a different email or try logging in.");
+        setLoading(false);
+        return;
+      }
+
+      // Check full name in ALL THREE tables (case-insensitive, cross-role)
+      // This prevents "Asi Valdez" from being used as both a student and parent
+      const fullNameChecks = await Promise.all([
+        supabase.from('user_profiles').select('full_name').ilike('full_name', formData.fullName.trim()).limit(1),
+        supabase.from('admins').select('full_name').ilike('full_name', formData.fullName.trim()).limit(1),
+        supabase.from('parents').select('full_name').ilike('full_name', formData.fullName.trim()).limit(1)
+      ]);
+
+      const fullNameExists = fullNameChecks.some(result => result.data && result.data.length > 0);
+
+      if (fullNameExists) {
+        setError(`❌ An account with the name "${formData.fullName}" already exists (regardless of role or capitalization). Please use your full legal name or contact support if this is an error.`);
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ No duplicates found (case-insensitive, cross-role), proceeding with signup...');
+    } catch (checkError) {
+      console.error('Error checking for duplicates:', checkError);
+      setError("Error validating account information. Please try again.");
+      setLoading(false);
+      return;
+    }
+
     try {
       // Step 1: Sign up the user in Supabase Auth
       console.log('Starting signup process for:', formData.email);
@@ -86,6 +129,7 @@ function SignupPage() {
         email: formData.email,
         password: formData.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/loginpage`,
           data: {
             full_name: formData.fullName,
             user_type: userType,
@@ -195,42 +239,9 @@ function SignupPage() {
         }
 
       } else if (userType === 'admin') {
-        // For admins: Create user_profile with pending status AND admin record
+        // For admins: Create ONLY admin record (NOT in user_profiles)
+        // Admins table is strictly for teachers/admins only
         
-        // Generate unique username from email (since admin form doesn't have username field)
-        const emailUsername = formData.email.split('@')[0]; // Get part before @
-        const uniqueUsername = `${emailUsername}_${Date.now()}`; // Add timestamp for uniqueness
-        
-        // Step 1: Create user_profile with pending status
-        const profileData = {
-          user_id: userId,
-          full_name: formData.fullName,
-          username: uniqueUsername, // Auto-generated from email
-          email: formData.email,
-          role: 'admin',
-          account_status: 'pending', // Requires approval from existing admin
-          phone_number: formData.phoneNumber,
-          address: formData.address
-        };
-
-        console.log('Creating admin user profile with pending status:', profileData);
-        const { data: profileResult, error: profileError } = await createUserProfile(profileData);
-        
-        if (profileError) {
-          console.error('Error creating admin user profile:', profileError);
-          
-          if (profileError.code === 'FK_CONSTRAINT_VIOLATION_RETRY_FAILED') {
-            setError(`Account created but profile setup is taking longer than expected. Please wait a moment and try logging in with your credentials, or refresh this page and try again.`);
-          } else if (profileError.code === '23505' || profileError.message?.includes('duplicate key')) {
-            setError(`Username already exists. Please try again with a different username.`);
-          } else {
-            setError(`Failed to create admin profile: ${profileError.message}`);
-          }
-          setLoading(false);
-          return;
-        }
-
-        // Step 2: Create admin record
         const adminData = {
           user_id: userId,
           full_name: formData.fullName,
@@ -238,6 +249,7 @@ function SignupPage() {
           phone_number: formData.phoneNumber,
           address: formData.address,
           department: formData.department || 'General',
+          account_status: 'approved', // TEMPORARY: Auto-approve new admins (pending rule removed)
           permissions: {
             can_view_students: true,
             can_edit_students: false,
@@ -247,11 +259,16 @@ function SignupPage() {
           }
         };
 
-        console.log('Creating admin record with data:', adminData);
+        console.log('Creating admin record (NOT in user_profiles, only in admins table):', adminData);
         const { error: adminError } = await createAdmin(adminData);
         if (adminError) {
           console.error('Error creating admin record:', adminError);
-          setError(`Failed to create admin account: ${adminError.message}`);
+          
+          if (adminError.code === 'FK_CONSTRAINT_VIOLATION_RETRY_FAILED') {
+            setError(`Account created but setup is taking longer than expected. Please wait a moment and try logging in, or refresh and try again.`);
+          } else {
+            setError(`Failed to create admin account: ${adminError.message}`);
+          }
           setLoading(false);
           return;
         }
@@ -259,7 +276,7 @@ function SignupPage() {
 
       // Success - Different messages based on user type
       if (userType === 'admin') {
-        setSuccess("Admin account created successfully! Your account is pending approval. An existing administrator will review and approve your account before you can log in. Please check your email to verify your account.");
+        setSuccess("Admin account created successfully! You can now log in. Please check your email to verify your account.");
       } else {
         setSuccess("Account created successfully! Please check your email to verify your account.");
       }

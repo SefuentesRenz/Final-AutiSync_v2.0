@@ -83,8 +83,8 @@ const Students = () => {
             console.log(`Found ${recentProgress.length} activities for ${profile?.full_name}`);
             
             const completedActivities = recentProgress.length;
-            const totalScore = recentProgress.reduce((sum, activity) => sum + (activity.score || 0), 0);
-            const averageScore = completedActivities > 0 ? Math.round(totalScore / completedActivities) : 0;
+            const totalScore = recentProgress.reduce((sum, activity) => sum + Math.min(100, activity.score || 0), 0);
+            const averageScore = completedActivities > 0 ? Math.min(100, Math.round(totalScore / completedActivities)) : 0;
             
             // Get last activity time
             const lastActivity = recentProgress[0];
@@ -387,7 +387,11 @@ const Students = () => {
         progress: 15,
         bgColor: 'bg-red-100'
       }
-    ]
+    ].sort((a, b) => {
+      // Sort order: EARNED first, then IN_PROGRESS, then LOCKED
+      const statusOrder = { 'EARNED': 0, 'IN_PROGRESS': 1, 'LOCKED': 2 };
+      return statusOrder[a.status] - statusOrder[b.status];
+    })
   };
 
   const filteredStudents = students.filter(student => {
@@ -662,7 +666,7 @@ const Students = () => {
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-500">Avg Score:</span>
                     <span className={`text-sm font-bold ${getScoreColor(student.averageScore)}`}>
-                      {student.averageScore}%
+                      {Math.min(100, student.averageScore)}%
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -834,7 +838,7 @@ const Students = () => {
                     </div>
                     <div className="text-right">
                       <p className={`text-lg font-bold ${activity.score >= 80 ? 'text-green-600' : activity.score >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        {activity.score}%
+                        {Math.min(100, activity.score)}%
                       </p>
                       <p className="text-sm text-gray-500">{activity.duration}</p>
                     </div>

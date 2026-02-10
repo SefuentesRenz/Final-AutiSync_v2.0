@@ -3,16 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getAllBadges, getStudentBadges } from '../lib/badgesApi';
 import { supabase } from '../lib/supabase';
+import { updateStreakOnLogin } from '../lib/streaksApi';
 
 const StudentPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [streakDays, setStreakDays] = useState(4);
+  const [streakDays, setStreakDays] = useState(0); // Changed from 4 to 0
   const [currentTime, setCurrentTime] = useState(new Date());
   const [badges, setBadges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
   const [streakData, setStreakData] = useState(null);
+  const [badgeFilter, setBadgeFilter] = useState('all'); // 'all', 'earned', 'locked'
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -45,12 +47,17 @@ const StudentPage = () => {
     fetchUserProfile();
   }, [user?.id]);
 
-  // Fetch streak data from streaks table
+  // Update streak on login and fetch streak data from streaks table
   useEffect(() => {
-    const fetchStreakData = async () => {
+    const updateAndFetchStreak = async () => {
       if (!user?.id) return;
       
       try {
+        // First, update the streak based on login
+        console.log('🔥 Updating streak on page load...');
+        await updateStreakOnLogin(user.id);
+        
+        // Then fetch the updated streak data
         const { data: streak, error } = await supabase
           .from('streaks')
           .select('current_streak, longest_streak, last_active_date')
@@ -71,7 +78,7 @@ const StudentPage = () => {
       }
     };
 
-    fetchStreakData();
+    updateAndFetchStreak();
   }, [user?.id]);
 
   // Fetch badges data
@@ -113,7 +120,6 @@ const StudentPage = () => {
             { id: '2f73958d-d18c-4135-96bd-c65ca554a207', title: 'Academic Star', description: 'Complete 5 academic activities.' },
             { id: 'c0e0441c-0688-4a4c-bd82-fad73c4392c1', title: 'Color Master', description: 'Complete 2 color activities in different difficulty levels.' },
             { id: '55544bd9-53a5-42ac-bee8-c6b05632dfff', title: 'Match Finder', description: 'Finish a matching type activity.' },
-            { id: '027f2d92-6a2f-4f07-bda5-aaced096eb00', title: 'Shape Explorer', description: 'Complete 2 shape activities.' },
             { id: 'd1ec22b8-9c28-44a4-9ee6-851b30948140', title: 'Number Ninja', description: 'Complete at least 1 number flashcard activity.' },
             { id: '899d3e1b-6a3f-4c88-b52c-4960bb6f0201', title: 'Consistency Champ', description: 'Complete 3 activities in different types.' },
             { id: '9e1e1566-6aec-479b-9f42-456e0c248386', title: 'High Achiever', description: 'Complete 5 activities with 80%+ average score.' },
@@ -136,7 +142,6 @@ const StudentPage = () => {
             'Academic Star': '📖',
             'Color Master': '🎨',
             'Match Finder': '🧩',
-            'Shape Explorer': '🔷',
             'Number Ninja': '🔢',
             'Consistency Champ': '📅',
             'High Achiever': '🏆',
@@ -150,7 +155,6 @@ const StudentPage = () => {
             'Academic Star': 'from-blue-400 to-blue-600',
             'Color Master': 'from-purple-400 to-purple-600',
             'Match Finder': 'from-pink-400 to-pink-600',
-            'Shape Explorer': 'from-blue-400 to-indigo-600',
             'Number Ninja': 'from-green-400 to-green-600',
             'Consistency Champ': 'from-orange-400 to-orange-600',
             'High Achiever': 'from-red-400 to-red-600',
@@ -164,7 +168,6 @@ const StudentPage = () => {
             'Academic Star': 'bg-blue-50',
             'Color Master': 'bg-purple-50',
             'Match Finder': 'bg-pink-50',
-            'Shape Explorer': 'bg-blue-50',
             'Number Ninja': 'bg-green-50',
             'Consistency Champ': 'bg-orange-50',
             'High Achiever': 'bg-red-50',
@@ -178,7 +181,6 @@ const StudentPage = () => {
             'Academic Star': 'animate-pulse-gentle',
             'Color Master': 'animate-bounce-gentle',
             'Match Finder': 'animate-wiggle',
-            'Shape Explorer': 'animate-float',
             'Number Ninja': 'animate-wiggle',
             'Consistency Champ': 'animate-pulse-gentle',
             'High Achiever': 'animate-bounce-gentle',
@@ -197,7 +199,14 @@ const StudentPage = () => {
           };
         });
 
-        setBadges(mappedBadges);
+        // Sort badges: earned badges first, then locked badges
+        const sortedBadges = mappedBadges.sort((a, b) => {
+          if (a.status === 'EARNED' && b.status === 'LOCKED') return -1;
+          if (a.status === 'LOCKED' && b.status === 'EARNED') return 1;
+          return 0;
+        });
+
+        setBadges(sortedBadges);
       } catch (error) {
         console.error('Error fetching badges data:', error);
       } finally {
@@ -278,7 +287,7 @@ const StudentPage = () => {
                   className="w-10 h-10 rounded-xl object-cover border-2 border-white shadow-sm group-hover:scale-105 transition-transform duration-300"
                 />
                 <span className="hidden sm:block text-sm font-semibold text-gray-700">
-                  {user?.user_metadata?.username || user?.user_metadata?.full_name?.split(' ')[0] || 'User'}
+                  {userProfile?.username || userProfile?.full_name || 'User'}
                 </span>
               </div>
             </div>
@@ -311,7 +320,7 @@ const StudentPage = () => {
                 <div className="flex">
                   <h2 className="text-2xl font-bold pt-1 text-gray-800">Welcome, </h2>
                   <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    {user?.user_metadata?.username || user?.user_metadata?.full_name?.split(' ')[0] || 'User'}!
+                    {userProfile?.username || userProfile?.full_name || 'User'}!
                   </h1>
                 </div>
               </div>
@@ -384,6 +393,40 @@ const StudentPage = () => {
                 </button>
               </div>
 
+              {/* Filter Buttons */}
+              <div className="flex gap-3 mb-6 flex-wrap">
+                <button
+                  onClick={() => setBadgeFilter('all')}
+                  className={`px-6 py-2 rounded-xl font-bold transition-all duration-300 ${
+                    badgeFilter === 'all'
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg transform scale-105'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  ✨ All Badges
+                </button>
+                <button
+                  onClick={() => setBadgeFilter('earned')}
+                  className={`px-6 py-2 rounded-xl font-bold transition-all duration-300 ${
+                    badgeFilter === 'earned'
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg transform scale-105'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  🌟 Earned ({badges.filter(b => b.status === 'EARNED').length})
+                </button>
+                <button
+                  onClick={() => setBadgeFilter('locked')}
+                  className={`px-6 py-2 rounded-xl font-bold transition-all duration-300 ${
+                    badgeFilter === 'locked'
+                      ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg transform scale-105'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  🔒 Locked ({badges.filter(b => b.status === 'LOCKED').length})
+                </button>
+              </div>
+
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {loading ? (
                   // Loading skeleton
@@ -396,7 +439,14 @@ const StudentPage = () => {
                     </div>
                   ))
                 ) : (
-                  badges.map((badge, index) => (
+                  badges
+                    .filter(badge => {
+                      if (badgeFilter === 'all') return true;
+                      if (badgeFilter === 'earned') return badge.status === 'EARNED';
+                      if (badgeFilter === 'locked') return badge.status === 'LOCKED';
+                      return true;
+                    })
+                    .map((badge, index) => (
                     <div 
                       key={index}
                       className={`card-autism-friendly ${badge.bgColor} p-4 rounded-2xl text-center relative overflow-hidden border-2 ${

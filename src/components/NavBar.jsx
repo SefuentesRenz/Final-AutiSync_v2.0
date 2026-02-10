@@ -1,10 +1,37 @@
-﻿import React from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const NavBar = ({ onProfileClick }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [userProfile, setUserProfile] = useState(null);
+
+  // Fetch user profile data to get correct username
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data: profile, error } = await supabase
+          .from('user_profiles')
+          .select('username, full_name')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('NavBar: Error fetching user profile:', error);
+        } else if (profile) {
+          setUserProfile(profile);
+        }
+      } catch (error) {
+        console.error('NavBar: Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user?.id]);
 
   const handleProfileClick = () => {
     if (onProfileClick) {
@@ -59,7 +86,7 @@ const NavBar = ({ onProfileClick }) => {
               className="w-8 h-8 rounded-xl object-cover border-2 border-white shadow-sm group-hover:scale-105 transition-transform duration-300"
             />
             <span className="hidden sm:block text-sm font-semibold text-gray-700">
-              {user?.user_metadata?.username || user?.user_metadata?.full_name?.split(' ')[0] || 'User'}
+              {userProfile?.username || userProfile?.full_name || 'User'}
             </span>
           </div>
       </div>

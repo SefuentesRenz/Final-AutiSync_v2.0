@@ -487,9 +487,9 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   };
 
   // Handle activity completion (record to database)
-  const handleActivityCompletion = async (studentId, activityId, score, status) => {
+  const handleActivityCompletion = async (studentId, activityId, score, status, difficultyId = null) => {
     try {
-      console.log('📝 Recording activity completion:', { studentId, activityId, score, status });
+      console.log('📝 Recording activity completion:', { studentId, activityId, score, status, difficultyId });
       
       // Import and call the progress API
       const { recordActivityProgress } = await import('../lib/progressApi');
@@ -506,16 +506,27 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       
       // Get the correct activity ID based on current activity and difficulty
       let validActivityId = activityId;
+      
+      // Check if this is a flashcard activity with difficulty mapping
       if (activity && difficulty && activityMapping[activity] && activityMapping[activity][difficulty]) {
         validActivityId = activityMapping[activity][difficulty];
+        console.log('🎯 Using flashcard activity ID:', validActivityId, 'for', activity, difficulty);
+      } else if (activityId && typeof activityId === 'number' && activityId > 0) {
+        // Use the provided activityId for non-flashcard activities (Social/Daily Life)
+        validActivityId = activityId;
+        console.log('🎯 Using provided activity ID:', validActivityId, 'for', activity);
       } else {
-        // Fallback to a default activity ID if mapping fails
-        validActivityId = 95; // Default to Beginner Identification
+        console.error('❌ No valid activity ID found for:', activity, difficulty, activityId);
+        return {
+          success: false,
+          errors: ['Invalid activity ID - cannot record progress']
+        };
       }
       
-      console.log('🎯 Using activity ID:', validActivityId, 'for', activity, difficulty);
+      console.log('🎯 Final activity ID:', validActivityId, 'for', activity, difficulty);
       
-      const result = await recordActivityProgress(studentId, validActivityId, score, status);
+      // Pass difficultyId to recordActivityProgress
+      const result = await recordActivityProgress(studentId, validActivityId, score, status, difficultyId);
       
       if (result.error) {
         console.error('❌ Error recording activity progress:', result.error);
@@ -3431,13 +3442,8 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     // Record activity completion in database and check for badges
     await handleActivityComplete(finalScore, totalItems);
     
-    // Start countdown for auto-redirect
-    setRedirectCountdown(5);
-    
-    // Auto-redirect to activities page after 5 seconds
-    setTimeout(() => {
-      navigate(-1); // Go back to activities/flashcards page
-    }, 5000);
+    // Don't auto-redirect - let students review their results
+    // They can click "Back" or "Next" when ready
   };
 
   const handleResetConnections = () => {
@@ -3924,12 +3930,13 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
             'Color Mixing': 4,
             'Colors': 4,
             
-            // Social/Daily Life activities - ID 3
-            'Hygiene Hero': 3,
-            'Cashier Game': 3,
-            'Safe Street Crossing': 3,
-            'Tooth Brushing': 3,
-            'Grocery Helper': 3,
+            // Social/Daily Life activities - each gets unique ID
+            'Cashier Game': 114,
+            'Money Value Game': 115,
+            'Social Greetings': 116,
+            'Hygiene Hero': 117,
+            'Safe Street Crossing': 118,
+            'Household Chores Helper': 119,
             
             // Identification activities - ID 5
             'Identification': 5,
@@ -4004,10 +4011,11 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
               .from('Difficulties')
               .select('id')
               .eq('difficulty', difficultyString)
+              .limit(1)
               .single();
             
             if (error) {
-              console.error('❌ Error fetching difficulty ID:', error);
+              console.error(' ❌ Error fetching difficulty ID:', error);
               return null;
             }
             
@@ -4043,6 +4051,24 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
           console.error('❌ Activity completion errors:', result.errors);
         } else {
           console.log('🎉 Activity completion recorded successfully!');
+        }
+
+        // Also record to student_scores table for unlock logic (only for Academic category)
+        if (category === 'Academic') {
+          try {
+            const { recordStudentScore } = await import('../lib/studentScoresApi');
+            await recordStudentScore(
+              user.id,
+              activity,
+              category,
+              difficulty,
+              finalScore,
+              totalQuestions
+            );
+            console.log('✅ Score recorded to student_scores for unlock logic');
+          } catch (err) {
+            console.error('Failed to record score for unlock:', err);
+          }
         }
       } catch (error) {
         console.error('💥 Failed to record activity completion:', error);

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { getParentByUserId, createParent, addChildToParent } from '../lib/parentsApi';
 import { UserIcon, HeartIcon, LinkIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
 
 const LinkChildPage = () => {
@@ -35,7 +36,28 @@ const LinkChildPage = () => {
         throw new Error(`Student not found with email "${childEmail}". Please check the email address and ensure the student has created a profile.`);
       }
 
-      // Check if relationship already exists
+      // Check if parent profile exists, create if not
+      let { data: parentProfile, error: parentError } = await getParentByUserId(user.id);
+      
+      if (parentError || !parentProfile) {
+        console.log('Parent profile not found. Creating one...');
+        const newParentData = {
+          user_id: user.id,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Parent',
+          email: user.email,
+          phone_number: user.user_metadata?.phone || '',
+          address: user.user_metadata?.address || ''
+        };
+        
+        const { data: createdParent, error: createError } = await createParent(newParentData);
+        if (createError) {
+          throw new Error('Could not create parent profile: ' + createError.message);
+        }
+        parentProfile = createdParent[0];
+        console.log('Created parent profile:', parentProfile);
+      }
+
+      // Check if relationship already exists in parent_child_relations
       const { data: existing } = await supabase
         .from('parent_child_relations')
         .select('id')
@@ -47,7 +69,7 @@ const LinkChildPage = () => {
         throw new Error('This child is already linked to your account.');
       }
 
-      // Create the relationship directly using auth UUIDs
+      // 1. Create the relationship in parent_child_relations table
       const { data: relationData, error: relationError } = await supabase
         .from('parent_child_relations')
         .insert([{
@@ -64,17 +86,24 @@ const LinkChildPage = () => {
         throw new Error('Failed to link child account: ' + relationError.message);
       }
 
+      // 2. Also add child to parent's children_ids array for dashboard compatibility
+      const { error: addChildError } = await addChildToParent(parentProfile.id, studentProfile.user_id);
+      if (addChildError) {
+        console.warn('Warning: Failed to add child to parent children_ids:', addChildError);
+        // Don't throw error here, as the main relation was created
+      }
+
       console.log('Successfully linked child:', relationData);
       setSuccess(true);
       
       console.log('=== REDIRECT DEBUG ===');
-      console.log('About to redirect to parent-dashboard in 2 seconds');
+      console.log('About to redirect to parent-dashboard in 1.5 seconds');
       
       // Redirect to dashboard after successful linking
       setTimeout(() => {
         console.log('Executing redirect to /parent-dashboard');
         navigate('/parent-dashboard');
-      }, 2000);
+      }, 1500);
 
     } catch (error) {
       console.error('Error linking child:', error);

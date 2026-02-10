@@ -130,17 +130,6 @@ export const createBadgeDefinitions = (category, difficulty, activity) => [
     points: 75
   },
   {
-    id: 'shape_explorer',
-    name: 'Shape Explorer',
-    description: 'Awarded after finishing 5 shape activities',
-    icon: '🔷',
-    gradient: 'from-blue-400 via-indigo-500 to-indigo-600',
-    rarity: BADGE_RARITIES.RARE,
-    type: BADGE_TYPES.MASTERY,
-    criteria: (score, total, stats) => stats.shapeActivitiesCompleted >= 5,
-    points: 75
-  },
-  {
     id: 'number_ninja',
     name: 'Number Ninja',
     description: 'Earned by correctly answering 20 number-related questions',

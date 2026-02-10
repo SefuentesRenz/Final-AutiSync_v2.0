@@ -4,6 +4,7 @@ import { CheckCircleIcon, AcademicCapIcon, UsersIcon, StarIcon, FireIcon, ArrowL
 import { getStudentProgressStats, getStudentProgress } from '../lib/progressApi';
 import { getUserProfileById } from '../lib/userProfilesApi';
 import { getActivities } from '../lib/activitiesApi';
+import { getAllBadges, getStudentBadges } from '../lib/badgesApi';
 import { supabase } from '../lib/supabase';
 
 const StudentProgress = () => {
@@ -16,6 +17,8 @@ const StudentProgress = () => {
   const [progressStats, setProgressStats] = useState(null);
   const [recentProgress, setRecentProgress] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [allBadges, setAllBadges] = useState([]);
+  const [studentBadges, setStudentBadges] = useState([]);
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -26,11 +29,13 @@ const StudentProgress = () => {
         // Get the student profile directly by user_id
         const studentUUID = id; // The ID passed should be the user_id
         
-        const [statsResult, progressResult, activitiesResult, profileResult] = await Promise.all([
+        const [statsResult, progressResult, activitiesResult, profileResult, badgesResult, studentBadgesResult] = await Promise.all([
           getStudentProgressStats(studentUUID),
           getStudentProgress(studentUUID),
           getActivities(),
-          getUserProfileById(studentUUID)
+          getUserProfileById(studentUUID),
+          getAllBadges(),
+          getStudentBadges(studentUUID)
         ]);
 
         // Set student profile information
@@ -69,6 +74,19 @@ const StudentProgress = () => {
           console.error('Error fetching activities:', activitiesResult.error);
         } else {
           setActivities(activitiesResult.data || []);
+        }
+
+        // Set badges
+        if (badgesResult.error) {
+          console.error('Error fetching badges:', badgesResult.error);
+        } else {
+          setAllBadges(badgesResult.data || []);
+        }
+
+        if (studentBadgesResult.error) {
+          console.error('Error fetching student badges:', studentBadgesResult.error);
+        } else {
+          setStudentBadges(studentBadgesResult.data || []);
         }
       } catch (err) {
         console.error('Error fetching student data:', err);
@@ -207,7 +225,7 @@ const StudentProgress = () => {
       },
       {
         title: 'AVERAGE ACCURACY',
-        value: `${progressStats.averageScore || 0}%`,
+        value: `${Math.min(100, progressStats.averageScore || 0)}%`,
         change: progressStats.averageScore > 85 ? 'Outstanding!' : progressStats.averageScore > 70 ? 'Great work!' : 'Improving',
   icon: <StarIcon className="w-8 h-8 text-purple-600" />,
         bgColor: 'bg-purple-50',
@@ -215,7 +233,7 @@ const StudentProgress = () => {
       },
       {
         title: 'AVERAGE SCORE',
-        value: `${progressStats.averageScore || 0}%`,
+        value: `${Math.min(100, progressStats.averageScore || 0)}%`,
         change: progressStats.averageScore > 85 ? 'Excellent work!' : progressStats.averageScore > 70 ? 'Good performance' : 'Room for improvement',
         icon: <StarIcon className="w-8 h-8 text-yellow-600" />,
         bgColor: 'bg-yellow-50',
@@ -252,6 +270,179 @@ const StudentProgress = () => {
   };
 
   // Generate difficulty progression based on student level
+  // Calculate real difficulty progression based on actual completed activities
+  const calculateDifficultyProgression = () => {
+    if (!recentProgress || recentProgress.length === 0) {
+      return [
+        { level: 'Beginner', progress: 0, completed: '0/0', icon: '🟢', color: 'bg-green-500', bgColor: 'bg-green-50' },
+        { level: 'Intermediate', progress: 0, completed: '0/0', icon: '🟠', color: 'bg-orange-500', bgColor: 'bg-orange-50' },
+        { level: 'Proficient', progress: 0, completed: '0/0', icon: '🔴', color: 'bg-red-500', bgColor: 'bg-red-50' }
+      ];
+    }
+
+    const difficultyStats = {
+      'Beginner': { completed: 0 },
+      'Intermediate': { completed: 0 },
+      'Proficient': { completed: 0 }
+    };
+
+    // Count total available activities by difficulty
+    const difficultyTotals = {
+      'Beginner': 0,
+      'Intermediate': 0,
+      'Proficient': 0
+    };
+
+    // Define flashcard activity types
+    const flashcardTypes = ['Identification', 'Numbers', 'Colors', 'Academic Puzzles', 'Matching Type', 'Visual Memory Challenge'];
+
+    // Count available activities (only flashcard activities)
+    activities.forEach(activity => {
+      // Only count flashcard activities
+      if (!flashcardTypes.includes(activity.activity_type)) {
+        return;
+      }
+      const difficulty = activity.Difficulties?.difficulty || activity.difficulty || 'Beginner';
+      if (difficultyTotals[difficulty] !== undefined) {
+        difficultyTotals[difficulty]++;
+      }
+    });
+
+    // Count completed activities by difficulty - avoid double counting
+    const completedActivityIds = new Set();
+    
+    recentProgress.forEach(progress => {
+      if (progress.completionStatus === 'completed') {
+        const activityId = progress.activityId;
+        
+        // Find the activity to check if it's a flashcard type
+        const activity = activities.find(act => act.id === activityId);
+        if (!activity || !flashcardTypes.includes(activity.activity_type)) {
+          return; // Skip non-flashcard activities
+        }
+        
+        // Only count each activity once
+        if (!completedActivityIds.has(activityId)) {
+          completedActivityIds.add(activityId);
+          
+          // Get difficulty from progress data
+          const difficulty = progress.difficultyName || 'Beginner';
+          
+          if (difficultyStats[difficulty] !== undefined) {
+            difficultyStats[difficulty].completed++;
+          }
+        }
+      }
+    });
+
+    // Return formatted data
+    return [
+      { 
+        level: 'Beginner', 
+        progress: difficultyTotals['Beginner'] > 0 ? Math.round((difficultyStats['Beginner'].completed / difficultyTotals['Beginner']) * 100) : 0,
+        completed: `${difficultyStats['Beginner'].completed}/${difficultyTotals['Beginner']}`, 
+        icon: '🟢', 
+        color: 'bg-green-500', 
+        bgColor: 'bg-green-50' 
+      },
+      { 
+        level: 'Intermediate', 
+        progress: difficultyTotals['Intermediate'] > 0 ? Math.round((difficultyStats['Intermediate'].completed / difficultyTotals['Intermediate']) * 100) : 0,
+        completed: `${difficultyStats['Intermediate'].completed}/${difficultyTotals['Intermediate']}`, 
+        icon: '🟠', 
+        color: 'bg-orange-500', 
+        bgColor: 'bg-orange-50' 
+      },
+      { 
+        level: 'Proficient', 
+        progress: difficultyTotals['Proficient'] > 0 ? Math.round((difficultyStats['Proficient'].completed / difficultyTotals['Proficient']) * 100) : 0,
+        completed: `${difficultyStats['Proficient'].completed}/${difficultyTotals['Proficient']}`, 
+        icon: '🔴', 
+        color: 'bg-red-500', 
+        bgColor: 'bg-red-50' 
+      }
+    ];
+  };
+
+  // Calculate real learning categories based on actual completed activities
+  const calculateLearningCategories = () => {
+    if (!recentProgress || recentProgress.length === 0) {
+      return [
+        { name: 'Academic Skills', percent: 0, count: '0/0', icon: '📚', color: 'bg-blue-500' },
+        { name: 'Daily Life Skills', percent: 0, count: '0/0', icon: '🏠', color: 'bg-orange-500' }
+      ];
+    }
+
+    const categoryStats = {
+      'Academic Skills': { completed: 0, total: 0 },
+      'Daily Life Skills': { completed: 0, total: 0 }
+    };
+
+    // Count total available activities by exact category name
+    activities.forEach(activity => {
+      const activityCategory = (activity.Categories?.category_name || activity.category || '').toLowerCase();
+      
+      // Only count "academic skills" not just "academic"
+      if (activityCategory === 'academic skills') {
+        categoryStats['Academic Skills'].total++;
+        console.log(`📚 Counted Academic: "${activity.title}" (category: "${activityCategory}")`);
+      } else if (activityCategory.includes('social') || activityCategory.includes('daily') || activityCategory.includes('life')) {
+        categoryStats['Daily Life Skills'].total++;
+        console.log(`🏠 Counted Daily Life: "${activity.title}" (category: "${activityCategory}")`);
+      } else {
+        console.log(`⚠️ Not counted: "${activity.title}" (category: "${activityCategory}")`);
+      }
+    });
+    
+    console.log(`📊 Total Academic Skills activities: ${categoryStats['Academic Skills'].total}`);
+    console.log(`📊 Total Daily Life Skills activities: ${categoryStats['Daily Life Skills'].total}`);
+
+    // Count completed activities by category - avoid double counting
+    const completedActivityIds = new Set();
+    
+    recentProgress.forEach(progress => {
+      if (progress.completionStatus === 'completed') {
+        const activityId = progress.activityId;
+        
+        // Only count each activity once
+        if (!completedActivityIds.has(activityId)) {
+          completedActivityIds.add(activityId);
+          
+          // Find the activity
+          const activity = activities.find(act => act.id === activityId);
+          if (activity) {
+            const activityCategory = (activity.Categories?.category_name || activity.category || '').toLowerCase();
+            
+            // Only count "academic skills" not just "academic"
+            if (activityCategory === 'academic skills') {
+              categoryStats['Academic Skills'].completed++;
+            } else if (activityCategory.includes('social') || activityCategory.includes('daily') || activityCategory.includes('life')) {
+              categoryStats['Daily Life Skills'].completed++;
+            }
+          }
+        }
+      }
+    });
+
+    // Return formatted data
+    return [
+      { 
+        name: 'Academic Skills', 
+        percent: categoryStats['Academic Skills'].total > 0 ? Math.round((categoryStats['Academic Skills'].completed / categoryStats['Academic Skills'].total) * 100) : 0,
+        count: `${categoryStats['Academic Skills'].completed}/${categoryStats['Academic Skills'].total}`, 
+        icon: '📚', 
+        color: 'bg-blue-500' 
+      },
+      { 
+        name: 'Daily Life Skills', 
+        percent: categoryStats['Daily Life Skills'].total > 0 ? Math.round((categoryStats['Daily Life Skills'].completed / categoryStats['Daily Life Skills'].total) * 100) : 0,
+        count: `${categoryStats['Daily Life Skills'].completed}/${categoryStats['Daily Life Skills'].total}`, 
+        icon: '🏠', 
+        color: 'bg-orange-500' 
+      }
+    ];
+  };
+
   const generateDifficultyProgression = (student) => {
     const totalActivities = student.completedActivities;
     const avgScore = student.averageScore;
@@ -289,84 +480,75 @@ const StudentProgress = () => {
     ];
   };
 
-  // Generate badges based on student achievements
-  const generateBadges = (student) => {
-    const badges = [
-      {
-        icon: '⭐',
-        title: 'First Steps',
-        description: 'Completed your first activity',
-        status: 'EARNED',
-        color: 'from-yellow-400 to-yellow-600',
-        bgColor: 'bg-yellow-50',
-        animation: 'animate-bounce-gentle'
-      },
-      {
-        icon: '📖',
-        title: 'Academic Star',
-        description: 'Completed 10 academic activities',
-        status: student.completedActivities >= 10 ? 'EARNED' : 'LOCKED',
-        color: student.completedActivities >= 10 ? 'from-blue-400 to-blue-600' : 'from-gray-400 to-gray-500',
-        bgColor: student.completedActivities >= 10 ? 'bg-blue-50' : 'bg-gray-50',
-        animation: student.completedActivities >= 10 ? 'animate-pulse-gentle' : ''
-      },
-      {
-        icon: '🎨',
-        title: 'Color Master',
-        description: 'Perfect score on 5 color activities',
-        status: student.averageScore >= 90 ? 'EARNED' : 'LOCKED',
-        color: student.averageScore >= 90 ? 'from-purple-400 to-purple-600' : 'from-gray-400 to-gray-500',
-        bgColor: student.averageScore >= 90 ? 'bg-purple-50' : 'bg-gray-50',
-        animation: student.averageScore >= 90 ? 'animate-bounce-gentle' : ''
-      },
-      {
-        icon: '🔢',
-        title: 'Number Ninja',
-        description: 'Excellent performance in numbers',
-        status: student.averageScore >= 85 ? 'EARNED' : 'LOCKED',
-        color: student.averageScore >= 85 ? 'from-green-400 to-green-600' : 'from-gray-400 to-gray-500',
-        bgColor: student.averageScore >= 85 ? 'bg-green-50' : 'bg-gray-50',
-        animation: student.averageScore >= 85 ? 'animate-wiggle' : ''
-      },
-      {
-        icon: '🔥',
-        title: 'Streak Master',
-        description: 'Learning for 7 days straight',
-        status: student.status === 'Active' ? 'EARNED' : 'LOCKED',
-        color: student.status === 'Active' ? 'from-orange-400 to-orange-600' : 'from-gray-400 to-gray-500',
-        bgColor: student.status === 'Active' ? 'bg-orange-50' : 'bg-gray-50',
-        animation: student.status === 'Active' ? 'animate-pulse-gentle' : ''
-      },
-      {
-        icon: '💪',
-        title: 'Helper Badge',
-        description: 'Completed activities with help',
-        status: 'EARNED',
-        color: 'from-pink-400 to-pink-600',
-        bgColor: 'bg-pink-50',
-        animation: 'animate-float'
-      },
-      {
-        icon: '🎯',
-        title: 'Challenge Seeker',
-        description: 'Attempt 5 hard level activities',
-        status: student.completedActivities >= 25 ? 'EARNED' : 'LOCKED',
-        color: student.completedActivities >= 25 ? 'from-indigo-400 to-indigo-600' : 'from-gray-400 to-gray-500',
-        bgColor: student.completedActivities >= 25 ? 'bg-indigo-50' : 'bg-gray-50',
-        animation: student.completedActivities >= 25 ? 'animate-float-delayed' : ''
-      },
-      {
-        icon: '🏆',
-        title: 'All-Rounder',
-        description: 'Complete activity in every category',
-        status: student.completedActivities >= 20 && student.averageScore >= 85 ? 'EARNED' : 'LOCKED',
-        color: student.completedActivities >= 20 && student.averageScore >= 85 ? 'from-gold-400 to-gold-600' : 'from-gray-400 to-gray-500',
-        bgColor: student.completedActivities >= 20 && student.averageScore >= 85 ? 'bg-yellow-50' : 'bg-gray-50',
-        animation: student.completedActivities >= 20 && student.averageScore >= 85 ? 'animate-bounce-gentle' : ''
+  // Calculate badges for this specific student from all available badges
+  const calculateStudentBadges = () => {
+    if (!allBadges || allBadges.length === 0) {
+      return [];
+    }
+
+    // Get the IDs of badges this student has earned
+    const earnedBadgeIds = new Set(studentBadges.map(sb => sb.badge_id));
+
+    // Map all badges to display format
+    const badgesDisplay = allBadges.map(badge => {
+      const hasEarned = earnedBadgeIds.has(badge.id);
+      const status = hasEarned ? 'EARNED' : 'LOCKED';
+
+      // Assign specific icons and colors based on badge type
+      let icon = '🏆';
+      let color = status === 'EARNED' ? 'from-yellow-400 to-yellow-600' : 'from-gray-400 to-gray-500';
+      let bgColor = status === 'EARNED' ? 'bg-yellow-50' : 'bg-gray-50';
+      let animation = status === 'EARNED' ? 'animate-bounce-gentle' : '';
+
+      if (badge.title.includes('First Step')) {
+        icon = '⭐';
+        if (status === 'EARNED') { color = 'from-yellow-400 to-yellow-600'; bgColor = 'bg-yellow-50'; }
+      } else if (badge.title.includes('Perfect Scorer')) {
+        icon = '🎯';
+        if (status === 'EARNED') { color = 'from-green-400 to-green-600'; bgColor = 'bg-green-50'; }
+      } else if (badge.title.includes('Academic Star')) {
+        icon = '📖';
+        if (status === 'EARNED') { color = 'from-blue-400 to-blue-600'; bgColor = 'bg-blue-50'; }
+      } else if (badge.title.includes('Color Master')) {
+        icon = '🎨';
+        if (status === 'EARNED') { color = 'from-purple-400 to-purple-600'; bgColor = 'bg-purple-50'; }
+      } else if (badge.title.includes('Match Finder')) {
+        icon = '🧩';
+        if (status === 'EARNED') { color = 'from-pink-400 to-pink-600'; bgColor = 'bg-pink-50'; }
+      } else if (badge.title.includes('Number Ninja')) {
+        icon = '🔢';
+        if (status === 'EARNED') { color = 'from-green-400 to-green-600'; bgColor = 'bg-green-50'; }
+      } else if (badge.title.includes('Consistency Champ')) {
+        icon = '📅';
+        if (status === 'EARNED') { color = 'from-indigo-400 to-indigo-600'; bgColor = 'bg-indigo-50'; }
+      } else if (badge.title.includes('High Achiever')) {
+        icon = '🏅';
+        if (status === 'EARNED') { color = 'from-orange-400 to-orange-600'; bgColor = 'bg-orange-50'; }
+      } else if (badge.title.includes('Daily Life Hero')) {
+        icon = '🏠';
+        if (status === 'EARNED') { color = 'from-teal-400 to-teal-600'; bgColor = 'bg-teal-50'; }
+      } else if (badge.title.includes('All-Rounder')) {
+        icon = '🏆';
+        if (status === 'EARNED') { color = 'from-gradient-400 to-gradient-600'; bgColor = 'bg-gradient-to-br from-yellow-50 to-orange-50'; }
       }
-    ];
-    
-    return badges;
+
+      return {
+        icon,
+        title: badge.title,
+        description: badge.description,
+        status,
+        color,
+        bgColor,
+        animation
+      };
+    });
+
+    // Sort badges: earned badges first, then locked badges
+    return badgesDisplay.sort((a, b) => {
+      if (a.status === 'EARNED' && b.status === 'LOCKED') return -1;
+      if (a.status === 'LOCKED' && b.status === 'EARNED') return 1;
+      return 0;
+    });
   };
 
   // Use real progress data instead of generated data
@@ -378,38 +560,73 @@ const StudentProgress = () => {
     averageScore: progressStats?.averageScore || 0
   };
   
-  const difficultyProgression = generateDifficultyProgression(fallbackStudent);
-  const badges = generateBadges(fallbackStudent);
+  // Use dynamic calculations based on real data
+  const difficultyProgression = calculateDifficultyProgression();
+  const categories = calculateLearningCategories();
+  const badges = calculateStudentBadges();
 
   // Use real recent progress data
   const recentActivitiesDisplay = recentProgress?.slice(0, 6).map((progress, index) => {
     // Get activity title from the progress data
     const activityTitle = progress.activityTitle || 'Unknown Activity';
-    
-    // Get student name - try multiple sources
-    const studentName = progress.student_name || 
-                       progress.studentName || 
-                       student?.name || 
-                       `Student ${progress.student_id?.substring(0, 8)}`;
-    
+
+    // Get student name - use just the name without any UUIDs
+    const studentName = progress.studentName ||
+      progress.student_name ||
+      student?.name ||
+      'Unknown Student';
+
+    // Get category name (not the UUID)
+    const categoryName = (progress.categoryName || 'Other').toLowerCase();
+
+    // Get difficulty name (not the UUID)
+    let difficultyName = progress.difficultyName || 'Beginner';
+
+    // Known Social/Daily Life activity names (for old and new data)
+    const socialDailyLifeActivities = [
+      'hygiene hero',
+      'cashier game',
+      'safe street crossing',
+      'social greetings',
+      'household chores helper',
+      'money value game',
+      'chores helper',
+      'tooth brushing',
+      'grocery helper'
+    ];
+
+    // Normalize for comparison
+    const normalizedActivityTitle = (activityTitle || '').toLowerCase();
+    const normalizedDifficulty = (difficultyName || '').toLowerCase();
+
+    // Robust check for Social/Daily Life Skill or missing difficulty
+    const isSocialDailyLife = categoryName.includes('social') ||
+      categoryName.includes('daily') ||
+      socialDailyLifeActivities.includes(normalizedActivityTitle) ||
+      !difficultyName ||
+      normalizedDifficulty === 'n/a' ||
+      normalizedDifficulty === 'null' ||
+      normalizedDifficulty === 'undefined' ||
+      normalizedDifficulty === '';
+
+    if (isSocialDailyLife) {
+      difficultyName = 'Game';
+    }
+
     return {
       title: activityTitle,
       user: studentName,
-      category: progress.categoryId || progress.category || 'Other',
+      category: progress.categoryName || 'Other',
       time: new Date(progress.dateCompleted || progress.date_completed).toLocaleString(),
-      difficulty: progress.difficultyId || progress.difficulty || 'Beginner',
-      score: progress.score ? `${progress.score}%` : 'No score',
-      difficultyColor: (progress.difficultyId || progress.difficulty) === 'Beginner' ? 'bg-green-100 text-green-800' :
-                      (progress.difficultyId || progress.difficulty) === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800',
+      difficulty: difficultyName,
+      score: progress.score ? `${Math.min(100, progress.score)}%` : 'No score',
+      difficultyColor: difficultyName === 'Game' ? 'bg-purple-100 text-purple-800' :
+        difficultyName === 'Beginner' ? 'bg-green-100 text-green-800' :
+        difficultyName === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
+        'bg-red-100 text-red-800',
       avatar: studentName ? studentName.split(' ').map(n => n[0]).join('') : 'S'
     };
   }) || [];
-
-  const categories = [
-    { name: 'Academic Skills', percent: Math.min(100, fallbackStudent.averageScore + 5), count: `${Math.floor(fallbackStudent.completedActivities * 0.7)}/${Math.floor(fallbackStudent.completedActivities * 0.8)}`, icon: '📚', color: 'bg-blue-500' },
-    { name: 'Daily Life Skills', percent: Math.min(100, fallbackStudent.averageScore + 10), count: `${Math.floor(fallbackStudent.completedActivities * 0.3)}/${Math.floor(fallbackStudent.completedActivities * 0.4)}`, icon: '🏠', color: 'bg-orange-500' }
-  ];
 
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
@@ -547,7 +764,7 @@ const StudentProgress = () => {
                       <div>
                         <p className="font-semibold text-gray-800">{activity.title}</p>
                                 <p className="text-sm text-gray-500">
-                                  {activity.user} · {activity.category} · {activity.time}
+                                  {activity.time}
                                 </p>
                       </div>
                     </div>

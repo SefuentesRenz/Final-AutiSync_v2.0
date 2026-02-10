@@ -68,47 +68,59 @@ export async function recordActivityProgress(studentId, activityId, score, compl
         student_name: studentName,
         date_completed: new Date().toISOString()
       };
-      
       // Add difficulty_id if provided
       if (difficultyId) {
         updateData.difficulty_id = difficultyId;
         console.log('📝 Including difficulty_id in update:', difficultyId);
       }
-      
       const { data, error } = await supabase
-  .from('user_activity_progress')
+        .from('user_activity_progress')
         .update(updateData)
         .eq('user_id', studentId) // Use user_id not student_id
         .eq('activity_id', activityId)
         .select();
-      
       result = { data, error };
       console.log('📝 Update result:', result);
     } else {
       // Insert new progress record
       console.log('➕ Inserting new progress record...');
+
+      // Fetch activity name (title) from activities table
+      let activityName = null;
+      try {
+        const { data: activityData, error: activityError } = await supabase
+          .from('activities')
+          .select('title')
+          .eq('id', activityId)
+          .single();
+        if (activityError) {
+          console.error('❌ Error fetching activity name:', activityError);
+        } else {
+          activityName = activityData?.title || null;
+        }
+      } catch (err) {
+        console.error('❌ Exception fetching activity name:', err);
+      }
+
       const progressRecord = {
         user_id: studentId, // Use user_id not student_id
         activity_id: activityId,
+        activity_name: activityName,
         score: score,
         completion_status: completionStatus,
         student_name: studentName,
         date_completed: new Date().toISOString()
       };
-      
       // Add difficulty_id if provided
       if (difficultyId) {
         progressRecord.difficulty_id = difficultyId;
         console.log('➕ Including difficulty_id in insert:', difficultyId);
       }
-      
       console.log('📋 Progress record to insert:', progressRecord);
-      
       const { data, error } = await supabase
-  .from('user_activity_progress')
+        .from('user_activity_progress')
         .insert([progressRecord])
         .select();
-      
       result = { data, error };
       console.log('➕ Insert result:', result);
     }
@@ -376,7 +388,7 @@ export async function getAllStudentsProgress() {
       student.totalActivities++;
       if (record.completion_status === 'completed') {
         student.completedActivities++;
-        student.totalScore += record.score || 0;
+        student.totalScore += Math.min(100, record.score || 0);
       }
 
       // Update last activity date
@@ -388,7 +400,7 @@ export async function getAllStudentsProgress() {
     // Calculate averages
     Object.values(studentProgressMap).forEach(student => {
       if (student.completedActivities > 0) {
-        student.averageScore = Math.round(student.totalScore / student.completedActivities);
+        student.averageScore = Math.min(100, Math.round(student.totalScore / student.completedActivities));
       }
       student.completionRate = student.totalActivities > 0 ? 
         Math.round((student.completedActivities / student.totalActivities) * 100) : 0;
@@ -430,7 +442,20 @@ export async function getStudentProgressStats(studentId) {
 
     console.log('Progress API: Found', progressRecords?.length || 0, 'progress records for student', studentId);
 
-    // Get activities separately if we have activity IDs
+    // Get ALL available activities in the system (including flashcard activities at different difficulty levels)
+    const { data: allActivitiesData, error: allActivitiesError } = await supabase
+      .from('activities')
+      .select('id, title, category_id');
+    
+    if (allActivitiesError) {
+      console.error('Progress API: Error fetching all activities:', allActivitiesError);
+      return { data: null, error: allActivitiesError };
+    }
+
+    const totalAvailableActivities = allActivitiesData?.length || 0;
+    console.log('Progress API: Total available activities in system:', totalAvailableActivities);
+
+    // Get activities separately if we have activity IDs in progress records
     let activities = [];
     let categories = [];
     if (progressRecords && progressRecords.length > 0) {
@@ -442,7 +467,7 @@ export async function getStudentProgressStats(studentId) {
       
       if (!activitiesError) {
         activities = activitiesData || [];
-        console.log('Progress API: Found', activities.length, 'activities:', activities);
+        console.log('Progress API: Found', activities.length, 'completed activities:', activities);
         
         // Get unique category IDs from activities
         const categoryIds = [...new Set(activities.map(a => a.category_id).filter(Boolean))];
@@ -466,11 +491,10 @@ export async function getStudentProgressStats(studentId) {
     }
 
     // Calculate statistics
-    const totalActivities = progressRecords?.length || 0;
     const completedActivities = progressRecords?.filter(r => r.completion_status === 'completed').length || 0;
-    const totalScore = progressRecords?.reduce((sum, r) => sum + (r.score || 0), 0) || 0;
-    const averageScore = completedActivities > 0 ? Math.round(totalScore / completedActivities) : 0;
-    const completionRate = totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0;
+    const totalScore = progressRecords?.reduce((sum, r) => sum + (Math.min(r.score || 0, 100)), 0) || 0;
+    const averageScore = completedActivities > 0 ? Math.min(100, Math.round(totalScore / completedActivities)) : 0;
+    const completionRate = totalAvailableActivities > 0 ? Math.round((completedActivities / totalAvailableActivities) * 100) : 0;
 
     // Get recent activity (last 7 days)
     const sevenDaysAgo = new Date();
@@ -514,7 +538,7 @@ export async function getStudentProgressStats(studentId) {
     });
 
     const stats = {
-      totalActivities,
+      totalActivities: totalAvailableActivities, // Total activities in the system
       completedActivities,
       averageScore,
       completionRate,
@@ -547,8 +571,11 @@ export async function getStudentProgress(studentId, limit = 50) {
       return { data: null, error };
     }
 
-    // Get activities separately if we have records
+    // Get activities, categories, and difficulties separately if we have records
     let activities = [];
+    let categories = [];
+    let difficulties = [];
+    
     if (progressRecords && progressRecords.length > 0) {
       const activityIds = [...new Set(progressRecords.map(record => record.activity_id))];
       const { data: activitiesData, error: activitiesError } = await supabase
@@ -556,20 +583,47 @@ export async function getStudentProgress(studentId, limit = 50) {
         .select('id, title, category_id, difficulty_id')
         .in('id', activityIds);
       
-      if (!activitiesError) {
-        activities = activitiesData || [];
+      if (!activitiesError && activitiesData) {
+        activities = activitiesData;
+        
+        // Get unique category and difficulty IDs
+        const categoryIds = [...new Set(activitiesData.map(a => a.category_id).filter(Boolean))];
+        const difficultyIds = [...new Set(activitiesData.map(a => a.difficulty_id).filter(Boolean))];
+        
+        // Fetch categories
+        if (categoryIds.length > 0) {
+          const { data: categoriesData } = await supabase
+            .from('Categories')
+            .select('id, category_name')
+            .in('id', categoryIds);
+          if (categoriesData) categories = categoriesData;
+        }
+        
+        // Fetch difficulties
+        if (difficultyIds.length > 0) {
+          const { data: difficultiesData } = await supabase
+            .from('Difficulties')
+            .select('id, difficulty')
+            .in('id', difficultyIds);
+          if (difficultiesData) difficulties = difficultiesData;
+        }
       }
     }
 
     // Transform the data for frontend consumption
     const transformedRecords = progressRecords?.map(record => {
       const activity = activities.find(a => a.id === record.activity_id);
+      const category = categories.find(c => c.id === activity?.category_id);
+      const difficulty = difficulties.find(d => d.id === activity?.difficulty_id);
+      
       return {
         id: record.id,
         activityId: record.activity_id,
         activityTitle: activity?.title || 'Unknown Activity',
         categoryId: activity?.category_id,
+        categoryName: category?.category_name || 'Other',
         difficultyId: activity?.difficulty_id,
+        difficultyName: difficulty?.difficulty || 'Beginner',
         score: record.score,
         completionStatus: record.completion_status,
         dateCompleted: record.date_completed,

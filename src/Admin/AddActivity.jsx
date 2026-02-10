@@ -165,7 +165,8 @@ const AddActivity = () => {
         duration: '10-15 min',
         participants: 1,
         icon: getActivityIcon(activityType),
-        color: getActivityColor(category)
+        color: getActivityColor(category),
+        activity_type: activityType
       };
 
       const { data: activity, error: activityError } = await createActivity(activityData);

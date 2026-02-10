@@ -65,7 +65,7 @@ const Tracking = () => {
               { id: '2f73958d-d18c-4135-96bd-c65ca554a207', title: 'Academic Star', description: 'Complete 5 academic activities.' },
               { id: 'c0e0441c-0688-4a4c-bd82-fad73c4392c1', title: 'Color Master', description: 'Complete 2 color activities in different difficulty levels.' },
               { id: '55544bd9-53a5-42ac-bee8-c6b05632dfff', title: 'Match Finder', description: 'Finish a matching type activity.' },
-              { id: '027f2d92-6a2f-4f07-bda5-aaced096eb00', title: 'Shape Explorer', description: 'Complete 2 shape activities.' },
+
               { id: 'd1ec22b8-9c28-44a4-9ee6-851b30948140', title: 'Number Ninja', description: 'Complete at least 1 number flashcard activity.' },
               { id: '899d3e1b-6a3f-4c88-b52c-4960bb6f0201', title: 'Consistency Champ', description: 'Complete 3 activities in different types.' },
               { id: '9e1e1566-6aec-479b-9f42-456e0c248386', title: 'High Achiever', description: 'Complete 5 activities with 80%+ average score.' },
@@ -372,13 +372,22 @@ const Tracking = () => {
       'Proficient': { total: 0, completed: 0 }
     };
 
-    // Count total activities by difficulty level
+    // Define flashcard activity types
+    const flashcardTypes = ['Identification', 'Numbers', 'Colors', 'Academic Puzzles', 'Matching Type', 'Visual Memory Challenge'];
+
+    // Count total activities by difficulty level (only flashcard activities)
     activities.forEach(activity => {
+      // Only count flashcard activities
+      if (!flashcardTypes.includes(activity.activity_type)) {
+        return;
+      }
       // Get difficulty from activity object with proper fallbacks
       let difficulty = null;
       
       // Try different possible sources for difficulty
-      if (activity.Difficulties?.name) {
+      if (activity.Difficulties?.difficulty) {
+        difficulty = activity.Difficulties.difficulty;
+      } else if (activity.Difficulties?.name) {
         difficulty = activity.Difficulties.name;
       } else if (activity.difficulty) {
         difficulty = activity.difficulty;
@@ -399,36 +408,40 @@ const Tracking = () => {
       }
       
       difficultyStats[difficulty].total++;
-      console.log(`📊 Activity "${activity.title}" assigned to ${difficulty} difficulty (from: ${activity.Difficulties?.name || activity.difficulty || 'default'})`);
+      console.log(`📊 Activity "${activity.title}" assigned to ${difficulty} difficulty (from: ${activity.Difficulties?.difficulty || activity.difficulty || 'default'})`);
     });
 
-    // Count completed activities by difficulty level - avoid double counting
-    const completedActivitiesByDifficulty = new Set();
+    // Count completed activities by difficulty level - count ALL completions by ALL students
+    // Also track unique students per difficulty
+    const studentsPerDifficulty = {
+      'Beginner': new Set(),
+      'Intermediate': new Set(),
+      'Proficient': new Set()
+    };
     
     progressData.students.forEach(student => {
       if (student.activities) {
         student.activities.forEach(progressRecord => {
-          // Only count completed activities once per difficulty
+          // Count ALL completed activities (including duplicates across students)
           if (progressRecord.completionStatus === 'completed') {
-            // Find the activity this progress belongs to
+            // Find the activity to check if it's a flashcard type
             const activity = activities.find(act => act.id === progressRecord.activityId);
-            if (!activity) {
-              console.log(`📊 Activity not found for progress record:`, progressRecord);
-              return;
+            if (!activity || !flashcardTypes.includes(activity.activity_type)) {
+              return; // Skip non-flashcard activities
             }
             
-            // Get difficulty from the activity with proper fallbacks
-            let difficulty = null;
+            // IMPORTANT: Use difficultyId from the progress record (which already contains the difficulty NAME)
+            let difficulty = progressRecord.difficultyId;
             
-            // Try different possible sources for difficulty
-            if (activity.Difficulties?.name) {
-              difficulty = activity.Difficulties.name;
-            } else if (activity.difficulty) {
-              difficulty = activity.difficulty;
-            } else if (activity.difficulty_level) {
-              difficulty = activity.difficulty_level;
-            } else if (activity.difficulty_name) {
-              difficulty = activity.difficulty_name;
+            // If no difficulty in progress record, try to get from activity
+            if (!difficulty) {
+              if (activity.Difficulties?.difficulty) {
+                difficulty = activity.Difficulties.difficulty;
+              } else if (activity.Difficulties?.name) {
+                difficulty = activity.Difficulties.name;
+              } else if (activity.difficulty) {
+                difficulty = activity.difficulty;
+              }
             }
             
             // Normalize difficulty names
@@ -441,30 +454,36 @@ const Tracking = () => {
               difficulty = 'Beginner';
             }
             
-            // Add to completed set to avoid double counting
-            const activityKey = `${difficulty}-${progressRecord.activityId}`;
-            if (!completedActivitiesByDifficulty.has(activityKey)) {
-              completedActivitiesByDifficulty.add(activityKey);
-              difficultyStats[difficulty].completed++;
-              console.log(`📊 Completed activity "${activity.title}" in ${difficulty} difficulty`);
-            }
+            // Count every completion (no Set to prevent counting)
+            difficultyStats[difficulty].completed++;
+            // Track unique students for this difficulty
+            studentsPerDifficulty[difficulty].add(student.studentId);
+            console.log(`📊 Counted completion: "${progressRecord.activityTitle}" in ${difficulty} difficulty by student ${student.studentName}`);
           }
         });
       }
+    });
+
+    // Calculate total possible completions (activities × students)
+    const totalStudents = progressData.students.length;
+    Object.keys(difficultyStats).forEach(difficulty => {
+      difficultyStats[difficulty].total = difficultyStats[difficulty].total * totalStudents;
+      difficultyStats[difficulty].studentCount = studentsPerDifficulty[difficulty].size;
     });
 
     // Convert to display format
     return Object.entries(difficultyStats).map(([level, stats]) => {
       const progressPercentage = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
       
-      console.log(`📊 Difficulty ${level}: ${stats.completed}/${stats.total} completed (${progressPercentage}%)`);
+      console.log(`📊 Difficulty ${level}: ${stats.completed}/${stats.total} completed (${progressPercentage}%) - ${stats.studentCount} students`);
       
       return {
         level,
         progress: progressPercentage,
-        completed: `${stats.completed}/${stats.total}`,
+        completed: `${stats.studentCount} ${stats.studentCount === 1 ? 'student' : 'students'} completed`,
         totalActivities: stats.total,
         completedActivities: stats.completed,
+        studentCount: stats.studentCount,
         icon: level === 'Beginner' ? '🌱' : level === 'Intermediate' ? '🔥' : '💪',
         color: level === 'Beginner' ? 'bg-green-500' : level === 'Intermediate' ? 'bg-orange-500' : 'bg-red-500',
         bgColor: level === 'Beginner' ? 'bg-green-50' : level === 'Intermediate' ? 'bg-orange-50' : 'bg-red-50'
@@ -479,101 +498,36 @@ const Tracking = () => {
     }
     
     console.log('📊 Calculating learning categories with data:', progressData);
-    console.log('📊 Available activities for categories:', activities);
     
-    const categoryStats = {};
+    const totalStudents = progressData.students.length;
     
-    // Initialize with the main categories we want to track
-    const mainCategories = {
-      'Academic Skills': {
-        icon: '📚',
-        color: 'bg-blue-500',
-        keywords: ['academic', 'math', 'reading', 'writing', 'science', 'learning', 'education']
-      },
-      'Daily Life Skills': {
-        icon: '🏠',
-        color: 'bg-orange-500',
-        keywords: ['daily', 'life', 'social', 'communication', 'interaction', 'skill', 'routine']
-      }
+    const categoryStats = {
+      'Academic Skills': { studentsCompleted: new Set(), icon: '📚', color: 'bg-blue-500' },
+      'Daily Life Skills': { studentsCompleted: new Set(), icon: '🏠', color: 'bg-orange-500' }
     };
     
-    // Initialize category stats
-    Object.keys(mainCategories).forEach(categoryName => {
-      categoryStats[categoryName] = {
-        total: 0,
-        completed: 0
-      };
-    });
-    
-    // Count total activities for each category
-    activities.forEach(activity => {
-      const activityTitle = (activity.title || '').toLowerCase();
-      const activityCategory = (activity.Categories?.category_name || activity.category || '').toLowerCase();
-      
-      // Determine which main category this activity belongs to
-      let assignedCategory = null;
-      
-      for (const [categoryName, categoryInfo] of Object.entries(mainCategories)) {
-        if (categoryInfo.keywords.some(keyword => 
-          activityTitle.includes(keyword) || activityCategory.includes(keyword)
-        )) {
-          assignedCategory = categoryName;
-          break;
-        }
-      }
-      
-      // Default to Academic Skills if no specific match
-      if (!assignedCategory) {
-        assignedCategory = 'Academic Skills';
-      }
-      
-      categoryStats[assignedCategory].total++;
-      console.log(`📊 Activity "${activity.title}" assigned to ${assignedCategory} category`);
-    });
-    
-    // Calculate completion from progress data - count unique activities completed per category
-    const completedActivitiesByCategory = new Set();
-    
+    // Track which students have completed activities in each category
     progressData.students.forEach(student => {
-      console.log('📊 Processing student:', student);
+      console.log('📊 Processing student:', student.studentName);
       if (student.activities) {
-        console.log('📊 Student activities:', student.activities);
         student.activities.forEach(progressRecord => {
-          console.log('📊 Processing progress record:', progressRecord);
-          // Only count completed activities once per category
+          // Only count completed activities
           if (progressRecord.completionStatus === 'completed') {
             // Find the activity this progress belongs to
             const activity = activities.find(act => act.id === progressRecord.activityId);
             if (!activity) {
-              console.log(`📊 Activity not found for progress record:`, progressRecord);
               return;
             }
             
-            const activityTitle = (activity.title || '').toLowerCase();
             const activityCategory = (activity.Categories?.category_name || activity.category || '').toLowerCase();
             
-            // Determine category assignment (same logic as above)
-            let assignedCategory = null;
-            
-            for (const [categoryName, categoryInfo] of Object.entries(mainCategories)) {
-              if (categoryInfo.keywords.some(keyword => 
-                activityTitle.includes(keyword) || activityCategory.includes(keyword)
-              )) {
-                assignedCategory = categoryName;
-                break;
-              }
-            }
-            
-            if (!assignedCategory) {
-              assignedCategory = 'Academic Skills';
-            }
-            
-            // Add to completed set to avoid double counting
-            const activityKey = `${assignedCategory}-${progressRecord.activityId}`;
-            if (!completedActivitiesByCategory.has(activityKey)) {
-              completedActivitiesByCategory.add(activityKey);
-              categoryStats[assignedCategory].completed++;
-              console.log(`📊 Completed activity "${activity.title}" in ${assignedCategory} category`);
+            // Determine category assignment
+            if (activityCategory.includes('academic')) {
+              categoryStats['Academic Skills'].studentsCompleted.add(student.studentId);
+              console.log(`📊 Student ${student.studentName} completed Academic Skills activity`);
+            } else if (activityCategory.includes('social') || activityCategory.includes('daily') || activityCategory.includes('life')) {
+              categoryStats['Daily Life Skills'].studentsCompleted.add(student.studentId);
+              console.log(`📊 Student ${student.studentName} completed Daily Life Skills activity`);
             }
           }
         });
@@ -582,19 +536,18 @@ const Tracking = () => {
     
     // Convert to display format
     return Object.entries(categoryStats).map(([categoryName, stats]) => {
-      const categoryInfo = mainCategories[categoryName];
-      const progressPercentage = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+      const studentsCount = stats.studentsCompleted.size;
+      const progressPercentage = totalStudents > 0 ? Math.round((studentsCount / totalStudents) * 100) : 0;
       
-      console.log(`📊 Category ${categoryName}: ${stats.completed}/${stats.total} completed (${progressPercentage}%)`);
+      console.log(`📊 Category ${categoryName}: ${studentsCount} students (${progressPercentage}%)`);
       
       return {
         name: categoryName,
         percent: progressPercentage,
-        count: `${stats.completed}/${stats.total}`,
-        totalActivities: stats.total,
-        completedActivities: stats.completed,
-        icon: categoryInfo.icon,
-        color: categoryInfo.color
+        studentsCount: studentsCount,
+        totalStudents: totalStudents,
+        icon: stats.icon,
+        color: stats.color
       };
     });
   };
@@ -609,36 +562,43 @@ const Tracking = () => {
     const recentActivities = [];
     progressData.students.forEach(student => {
       if (student.activities && student.activities.length > 0) {
-        student.activities.slice(0, 2).forEach(activity => {
-          console.log('🎮 ===== RECENT ACTIVITY DEBUG =====');
-          console.log('🎮 Activity Title:', activity.activityTitle);
-          console.log('🎮 Category:', activity.categoryId);
-          console.log('🎮 Difficulty Value:', activity.difficultyId);
-          console.log('🎮 Difficulty Type:', typeof activity.difficultyId);
-          console.log('🎮 Difficulty is null?:', activity.difficultyId === null);
-          console.log('🎮 Difficulty is undefined?:', activity.difficultyId === undefined);
-          console.log('🎮 Full activity object:', activity);
-
-          // Check if this is a Social/Daily Life Skills activity (they don't have difficulty)
-          const categoryName = activity.categoryId || '';
-          const isSocialDailyLife = categoryName.toLowerCase().includes('social') || 
-                                     categoryName.toLowerCase().includes('daily') || 
-                                     categoryName.toLowerCase().includes('life');
+        // Process ALL activities from each student, not just first 2
+        student.activities.forEach(activity => {
+          // Check if this is a Social/Daily Life Skills activity
+          const categoryName = (activity.categoryId || activity.categoryName || '').toLowerCase();
+          const activityTitle = (activity.activityTitle || '').toLowerCase();
           
-          console.log('🎮 Is Social/Daily Life?:', isSocialDailyLife);
+          // Known Social/Daily Life activity names
+          const socialDailyLifeActivities = [
+            'hygiene hero',
+            'cashier game',
+            'safe street crossing',
+            'social greetings',
+            'household chores helper',
+            'money value game',
+            'chores helper',
+            'tooth brushing'
+          ];
+          
+          // Robust check for Social/Daily Life Skill or missing difficulty
+          const isSocialDailyLife = categoryName.includes('social') || 
+                                     categoryName.includes('daily') || 
+                                     categoryName.includes('life') ||
+                                     socialDailyLifeActivities.includes(activityTitle) ||
+                                     !activity.difficultyId ||
+                                     activity.difficultyId === null ||
+                                     activity.difficultyId === undefined;
           
           // Determine difficulty display
           let difficultyDisplay;
           let difficultyColor;
           
           if (isSocialDailyLife) {
-            // Social/Daily Life Skills activities show "N/A"
-            console.log('🎮 Showing N/A because: Social/Daily Life category');
-            difficultyDisplay = 'N/A';
-            difficultyColor = 'bg-gray-100 text-gray-600';
+            // Social/Daily Life Skills activities show "Game"
+            difficultyDisplay = 'Game';
+            difficultyColor = 'bg-purple-100 text-purple-800';
           } else if (activity.difficultyId) {
             // Academic activities show actual difficulty level
-            console.log('🎮 Showing actual difficulty:', activity.difficultyId);
             difficultyDisplay = activity.difficultyId;
             difficultyColor = activity.difficultyId === 'Beginner' ? 'bg-green-100 text-green-800' :
                             activity.difficultyId === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
@@ -646,21 +606,18 @@ const Tracking = () => {
                             'bg-green-100 text-green-800'; // default to Beginner color
           } else {
             // Fallback for activities without difficulty
-            console.log('🎮 Showing N/A because: No difficulty value found (null or undefined)');
-            difficultyDisplay = 'N/A';
-            difficultyColor = 'bg-gray-100 text-gray-600';
+            difficultyDisplay = 'Game';
+            difficultyColor = 'bg-purple-100 text-purple-800';
           }
-
-          console.log('🎮 Final difficulty display:', difficultyDisplay);
-          console.log('🎮 ===== END DEBUG =====');
 
           recentActivities.push({
             title: activity.activityTitle || 'Unknown Activity',
             user: student.studentName || 'Unknown Student',
             category: categoryName || 'Other',
             time: new Date(activity.dateCompleted).toLocaleString(),
+            dateCompleted: activity.dateCompleted, // Keep raw date for sorting
             difficulty: difficultyDisplay,
-            score: activity.score ? `${activity.score}%` : 'No score',
+            score: activity.score ? `${Math.min(100, activity.score)}%` : 'No score',
             difficultyColor: difficultyColor,
             avatar: (student.student?.user_profiles?.username || student.studentName || 'U').substring(0, 2).toUpperCase()
           });
@@ -668,7 +625,10 @@ const Tracking = () => {
       }
     });
     
-    return recentActivities.slice(0, 6); // Show latest 6 activities
+    // Sort by date (most recent first) and return the 6 most recent activities
+    return recentActivities
+      .sort((a, b) => new Date(b.dateCompleted) - new Date(a.dateCompleted))
+      .slice(0, 6);
   };
 
   const recentActivitiesData = loading ? [] : getRecentActivities();
@@ -825,9 +785,6 @@ const Tracking = () => {
       } else if (badge.title.includes('Match Finder')) {
         icon = '🧩';
         if (status === 'EARNED') { color = 'from-pink-400 to-pink-600'; bgColor = 'bg-pink-50'; }
-      } else if (badge.title.includes('Shape Explorer')) {
-        icon = '🔷';
-        if (status === 'EARNED') { color = 'from-blue-400 to-indigo-600'; bgColor = 'bg-blue-50'; }
       } else if (badge.title.includes('Number Ninja')) {
         icon = '🔢';
         if (status === 'EARNED') { color = 'from-green-400 to-green-600'; bgColor = 'bg-green-50'; }
@@ -856,8 +813,15 @@ const Tracking = () => {
       };
     });
 
-    console.log('🏆 Calculated badges display:', badgesDisplay);
-    return badgesDisplay;
+    // Sort badges: earned badges first, then locked badges
+    const sortedBadges = badgesDisplay.sort((a, b) => {
+      if (a.status === 'EARNED' && b.status === 'LOCKED') return -1;
+      if (a.status === 'LOCKED' && b.status === 'EARNED') return 1;
+      return 0;
+    });
+
+    console.log('🏆 Calculated badges display:', sortedBadges);
+    return sortedBadges;
   };
 
   const badges = loading ? [] : calculateDynamicBadges();
@@ -997,7 +961,7 @@ const Tracking = () => {
                       <div>
                         <p className="font-semibold text-gray-800">{activity.title}</p>
                         <p className="text-sm text-gray-500">
-                          {activity.user} • {activity.category} • {activity.time}
+                          {activity.user} • {activity.time}
                         </p>
                       </div>
                     </div>
@@ -1027,21 +991,25 @@ const Tracking = () => {
             </div>
             <div className="space-y-6">
               {categories.map((cat, idx) => (
-                <div key={idx} className="bg-gray-50 rounded-xl p-4">
+                <div key={idx} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
                       <span className="text-2xl">{cat.icon}</span>
-                      <span className="font-semibold text-gray-700">{cat.name}</span>
+                      <div>
+                        <span className="font-semibold text-gray-700">{cat.name}</span>
+                        <p className="text-sm text-gray-500">
+                          {cat.studentsCount} {cat.studentsCount === 1 ? 'student' : 'students'} completed activities
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-sm font-bold text-gray-600">{cat.count}</span>
+                    <span className="text-lg font-bold text-gray-800">{cat.percent}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+                  <div className="w-full bg-gray-200 rounded-full h-3">
                     <div
                       className={`${cat.color} h-3 rounded-full transition-all duration-500`}
                       style={{ width: `${cat.percent}%` }}
                     ></div>
                   </div>
-                  <p className="text-sm text-gray-600">{cat.percent}% complete</p>
                 </div>
               ))}
             </div>

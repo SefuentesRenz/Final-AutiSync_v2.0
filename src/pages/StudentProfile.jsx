@@ -21,7 +21,7 @@ const StudentProfile = () => {
     achievements: 0,
     day_streak: 0,
     activities_done: 0,
-    accuracy_rate: 83
+    accuracy_rate: 0
   });
   
   const [loading, setLoading] = useState(true);
@@ -31,9 +31,10 @@ const StudentProfile = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [allBadges, setAllBadges] = useState([]);
+  const [checkingBadges, setCheckingBadges] = useState(false);
 
   // Use badges hook for current user
-  const { badges: studentBadges, loading: badgesLoading, checkBadges } = useBadges(user?.id);
+  const { badges: studentBadges, loading: badgesLoading, checkBadges, refreshBadges } = useBadges(user?.id);
 
   // Mock tracking data for visual appeal
   const [studentTrackingData, setStudentTrackingData] = useState({
@@ -159,11 +160,10 @@ const StudentProfile = () => {
           achievements: existingProfile.achievements || 0,
           day_streak: existingProfile.day_streak || 0,
           activities_done: existingProfile.activities_done || 0,
-          accuracy_rate: existingProfile.accuracy_rate || 83
+          accuracy_rate: existingProfile.accuracy_rate || 0
         });
         
-        // Calculate real stats after loading profile
-        await calculateStudentStats();
+        // Stats will be calculated by useEffect once badges are loaded
       } else {
         console.log('No profile found, creating one...');
         await createProfile();
@@ -183,8 +183,20 @@ const StudentProfile = () => {
 
   const calculateStudentStats = async () => {
     try {
+      // Don't calculate if badges are still loading to avoid showing stale data
+      if (badgesLoading) {
+        console.log('⏳ Skipping stats calculation - badges still loading');
+        return;
+      }
+      
       console.log('🔄 Calculating student stats for user:', user.id);
       console.log('🔄 Badges available for stats:', studentBadges);
+      
+      // Get real achievements count from badges (independent of progress data)
+      console.log('🏆 Student badges data:', studentBadges);
+      console.log('🏆 Badges loading state:', badgesLoading);
+      const achievements = studentBadges ? studentBadges.length : 0;
+      console.log('🏆 Calculated achievements:', achievements);
       
       // Get user's activity progress
       const { data: progressData, error } = await getStudentProgress(user.id);
@@ -203,12 +215,6 @@ const StudentProfile = () => {
 
         // Calculate completion rate (for now, let's assume all fetched activities are completed)
         const completionRate = activitiesDone > 0 ? 100 : 0;
-
-        // Get real achievements count from badges
-        console.log('🏆 Student badges data:', studentBadges);
-        console.log('🏆 Badges loading state:', badgesLoading);
-        const achievements = studentBadges ? studentBadges.length : 0;
-        console.log('🏆 Calculated achievements:', achievements);
         
         // Get real day streak from database
         let dayStreak = 0;
@@ -258,7 +264,39 @@ const StudentProfile = () => {
 
       } else {
         console.log('No progress data found for user');
-        // Keep default values (zeros)
+        
+        // Even without progress data, we should still update achievements count from badges
+        // Get real day streak from database
+        let dayStreak = 0;
+        try {
+          const { data: streakData, error: streakError } = await supabase
+            .from('streaks')
+            .select('current_streak, longest_streak, last_active_date')
+            .eq('user_id', user.id)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (streakError && streakError.code !== 'PGRST116') {
+            console.error('Error fetching streak data:', streakError);
+            dayStreak = 0;
+          } else if (streakData) {
+            console.log('📊 Streak data loaded in profile:', streakData);
+            dayStreak = streakData.current_streak || 0;
+          }
+        } catch (error) {
+          console.error('Error fetching streak data in profile:', error);
+          dayStreak = 0;
+        }
+        
+        // Update only achievements and streak (keep other stats at 0)
+        setUserInfo(prevInfo => ({
+          ...prevInfo,
+          achievements: achievements,
+          day_streak: dayStreak,
+          activities_done: 0,
+          accuracy_rate: 0
+        }));
       }
     } catch (error) {
       console.error('Error calculating student stats:', error);
@@ -282,11 +320,10 @@ const StudentProfile = () => {
       achievements: 0,
       day_streak: 0,
       activities_done: 0,
-      accuracy_rate: 83
+      accuracy_rate: 0
     });
     
-    // Calculate real stats after creating basic profile
-    await calculateStudentStats();
+    // Stats will be calculated by useEffect once badges are loaded
     
     setSuccessMessage('Profile loaded from signup data!');
     setTimeout(() => setSuccessMessage(''), 3000);
@@ -395,11 +432,10 @@ const StudentProfile = () => {
                 achievements: 0,
                 day_streak: 0,
                 activities_done: 0,
-                accuracy_rate: 83
+                accuracy_rate: 0
               });
               
-              // Calculate real stats after creating profile
-              await calculateStudentStats();
+              // Stats will be calculated by useEffect once badges are loaded
               
               setSuccessMessage('Profile created successfully!');
               setTimeout(() => setSuccessMessage(''), 3000);
@@ -426,11 +462,10 @@ const StudentProfile = () => {
         achievements: 0,
         day_streak: 0,
         activities_done: 0,
-        accuracy_rate: 83
+        accuracy_rate: 0
       });
       
-      // Calculate real stats after creating profile
-      await calculateStudentStats();
+      // Stats will be calculated by useEffect once badges are loaded
       
       setSuccessMessage('Profile created successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -567,6 +602,27 @@ const StudentProfile = () => {
     setSuccessMessage('');
     if (user) {
       loadProfile();
+    }
+  };
+
+  const handleCheckBadges = async () => {
+    if (!user?.id) return;
+    
+    setCheckingBadges(true);
+    setError('');
+    setSuccessMessage('');
+    
+    try {
+      console.log('🏆 Manually checking badges...');
+      await checkBadges();
+      await refreshBadges();
+      setSuccessMessage('✅ Badge check complete! Any new badges have been awarded.');
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (err) {
+      console.error('Error checking badges:', err);
+      setError('Failed to check badges. Please try again.');
+    } finally {
+      setCheckingBadges(false);
     }
   };
 

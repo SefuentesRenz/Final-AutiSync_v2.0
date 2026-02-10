@@ -1,6 +1,27 @@
 // src/lib/streaksApi.js
 import { supabase } from './supabase';
 
+// Check if current time is within streak increment window (6:00 AM - 3:00 PM)
+function isWithinStreakWindow() {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const currentTime = hours * 60 + minutes; // Convert to minutes since midnight
+  
+  const startTime = 6 * 60; // 6:00 AM in minutes
+  const endTime = 15 * 60; // 3:00 PM (15:00) in minutes
+  
+  const isWithin = currentTime >= startTime && currentTime <= endTime;
+  console.log('🕐 Time check:', { 
+    currentHour: hours, 
+    currentMinute: minutes,
+    isWithinWindow: isWithin,
+    window: '6:00 AM - 3:00 PM'
+  });
+  
+  return isWithin;
+}
+
 // Get or create streak record for a student
 export async function getStudentStreak(studentId) {
   try {
@@ -18,7 +39,8 @@ export async function getStudentStreak(studentId) {
           user_id: studentId,
           current_streak: 0,
           longest_streak: 0,
-          last_active_date: null
+          last_active_date: null,
+          last_streak_increment_date: null
         }])
         .select()
         .single();
@@ -33,10 +55,10 @@ export async function getStudentStreak(studentId) {
   }
 }
 
-// Update streak when student is active
-export async function updateStreak(studentId) {
+// Update streak on login - with time window and 3-day reset logic
+export async function updateStreakOnLogin(studentId) {
   try {
-    console.log('🔥 updateStreak called for student:', studentId);
+    console.log('🔥 updateStreakOnLogin called for student:', studentId);
 
     const { data: currentStreak, error: getError } = await getStudentStreak(studentId);
     if (getError) {
@@ -46,27 +68,109 @@ export async function updateStreak(studentId) {
 
     console.log('🔥 Current streak data:', currentStreak);
 
-    const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD format
+    // Get local date in YYYY-MM-DD format (no timezone conversion)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
+    const lastStreakIncrementDate = currentStreak.last_streak_increment_date;
     const lastActiveDate = currentStreak.last_active_date;
 
     console.log('🔥 Streak calculation:', {
       today,
+      todayFormatted: new Date().toLocaleString(),
+      lastStreakIncrementDate,
       lastActiveDate,
       currentStreak: currentStreak.current_streak,
-      longestStreak: currentStreak.longest_streak
+      longestStreak: currentStreak.longest_streak,
+      datesMatch: lastStreakIncrementDate === today
     });
+
+    // First, check if streak needs to be reset due to 3+ day gap
+    let needsReset = false;
+    let gapDays = 0;
+    if (lastStreakIncrementDate) {
+      const lastIncrement = new Date(lastStreakIncrementDate);
+      const todayDate = new Date(today);
+      const diffTime = todayDate.getTime() - lastIncrement.getTime();
+      gapDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      console.log('🔥 Checking for gap:', {
+        lastStreakIncrementDate,
+        today,
+        diffDays: gapDays
+      });
+
+      if (gapDays >= 3) {
+        needsReset = true;
+        console.log('🔥 3+ days gap detected, streak will reset to 1 when logging in during window');
+      }
+    }
+
+    // Check if within time window (6:00 AM - 3:00 PM)
+    if (!isWithinStreakWindow()) {
+      console.log('⏰ Outside streak window (6AM-3PM), no streak increment');
+      
+      // If there was a 3+ day gap, reset to 0 (will become 1 when they log in during window)
+      if (needsReset) {
+        const { data: resetData, error: resetError } = await supabase
+          .from('streaks')
+          .update({
+            current_streak: 0,
+            last_active_date: today,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentStreak.id)
+          .select()
+          .single();
+
+        if (resetError) {
+          console.error('❌ Error resetting streak:', resetError);
+        } else {
+          console.log('✅ Streak reset to 0 due to 3+ day gap (outside window)');
+          currentStreak.current_streak = 0;
+        }
+      } else {
+        // Just update last_active_date
+        await supabase
+          .from('streaks')
+          .update({
+            last_active_date: today,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', studentId);
+      }
+      
+      return { data: currentStreak, error: null, message: 'Outside streak window' };
+    }
+
+    // Check if already incremented today
+    if (lastStreakIncrementDate === today) {
+      console.log('✅ Streak already incremented today, no change');
+      // Still update last_active_date to track they logged in
+      await supabase
+        .from('streaks')
+        .update({
+          last_active_date: today,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', studentId);
+      
+      return { data: currentStreak, error: null, message: 'Already incremented today' };
+    }
 
     let newCurrentStreak = currentStreak.current_streak;
     let newLongestStreak = currentStreak.longest_streak;
 
-    if (lastActiveDate) {
-      const lastActive = new Date(lastActiveDate);
+    if (lastStreakIncrementDate) {
+      const lastIncrement = new Date(lastStreakIncrementDate);
       const todayDate = new Date(today);
-      const diffTime = todayDate.getTime() - lastActive.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffTime = todayDate.getTime() - lastIncrement.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
       console.log('🔥 Date comparison:', {
-        lastActive: lastActive.toISOString(),
+        lastIncrement: lastIncrement.toISOString(),
         todayDate: todayDate.toISOString(),
         diffTime,
         diffDays
@@ -76,19 +180,19 @@ export async function updateStreak(studentId) {
         // Consecutive day - increment streak
         newCurrentStreak += 1;
         console.log('🔥 Consecutive day detected, incrementing streak to:', newCurrentStreak);
-      } else if (diffDays === 0) {
-        // Same day - no change to streak
-        newCurrentStreak = currentStreak.current_streak;
-        console.log('🔥 Same day activity, keeping streak at:', newCurrentStreak);
-      } else {
-        // Gap in days - reset streak to 1
+      } else if (diffDays >= 3) {
+        // 3 or more days gap - reset to 0, then increment to 1 for today's login
         newCurrentStreak = 1;
-        console.log('🔥 Gap in days detected, resetting streak to 1');
+        console.log('🔥 3+ days gap detected, resetting and starting fresh at 1');
+      } else if (diffDays > 1) {
+        // 2 days gap - reset to 1 (starting fresh)
+        newCurrentStreak = 1;
+        console.log('🔥 2 days gap detected, resetting streak to 1');
       }
     } else {
-      // First time active
+      // First time incrementing - start at 1
       newCurrentStreak = 1;
-      console.log('🔥 First time active, setting streak to 1');
+      console.log('🔥 First time incrementing, setting streak to 1');
     }
 
     // Update longest streak if current streak is higher
@@ -104,16 +208,17 @@ export async function updateStreak(studentId) {
       studentId
     });
 
-    // Update the streak record
+    // Update the streak record using the ID (not user_id to avoid duplicate issues)
     const { data, error } = await supabase
       .from('streaks')
       .update({
         current_streak: newCurrentStreak,
         longest_streak: newLongestStreak,
         last_active_date: today,
+        last_streak_increment_date: today, // Track when streak was last incremented
         updated_at: new Date().toISOString()
       })
-      .eq('user_id', studentId)
+      .eq('id', currentStreak.id) // Use ID instead of user_id
       .select()
       .single();
 
@@ -123,11 +228,16 @@ export async function updateStreak(studentId) {
     }
 
     console.log('✅ Streak updated successfully in database:', data);
-    return { data, error: null };
+    return { data, error: null, message: 'Streak incremented' };
   } catch (error) {
     console.error('Unexpected error updating streak:', error);
     return { data: null, error: { message: error.message } };
   }
+}
+
+// Legacy function for backward compatibility (activities)
+export async function updateStreak(studentId) {
+  return updateStreakOnLogin(studentId);
 }
 
 // Get streak statistics for dashboard
@@ -138,7 +248,12 @@ export async function getStreakStats(studentId) {
       return { data: null, error };
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // Get local date in YYYY-MM-DD format (no timezone conversion)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
     const lastActiveDate = streak.last_active_date;
     
     let isActiveToday = false;

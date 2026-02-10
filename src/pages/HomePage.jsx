@@ -4,6 +4,8 @@ import StudentCharacter from '../components/StudentCharacter';
 
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { updateStreakOnLogin } from '../lib/streaksApi';
+import { checkAndAwardBadges } from '../lib/badgesApi';
 
 
 const Emotions = [
@@ -146,11 +148,12 @@ const HomePage = () => {
     }
   };
 
-  // Fetch user profile data
+  // Fetch user profile data and update streak on login
   useEffect(() => {
     if (user) {
       fetchUserProfile();
       fetchExpressions();
+      updateLoginStreak(); // Update streak when user logs in
       
       // Set up auto-refresh for expressions every hour to maintain 24h filter
       const expressionRefreshInterval = setInterval(() => {
@@ -163,6 +166,23 @@ const HomePage = () => {
       };
     }
   }, [user]);
+
+  const updateLoginStreak = async () => {
+    if (!user?.id) return;
+    
+    try {
+      console.log('🔥 Checking streak on login for user:', user.id);
+      const result = await updateStreakOnLogin(user.id);
+      
+      if (result.error) {
+        console.error('Error updating streak:', result.error);
+      } else if (result.message) {
+        console.log('🔥 Streak update result:', result.message);
+      }
+    } catch (error) {
+      console.error('Error in updateLoginStreak:', error);
+    }
+  };
 
   const fetchUserProfile = async () => {
     if (!user) return;
@@ -413,6 +433,16 @@ const HomePage = () => {
         await createAlert(userProfile.user_id, selectedEmotion, expressionResult.id, emotionNote);
       }
       
+      // Automatically check and award badges after emotion submission
+      console.log('🏆 Checking for badges after emotion submission...');
+      try {
+        await checkAndAwardBadges(userProfile.user_id);
+        console.log('🏆 Badge check completed');
+      } catch (badgeError) {
+        console.warn('Warning: Failed to check badges:', badgeError);
+        // Don't block emotion submission if badge check fails
+      }
+      
       // Don't add to local state immediately - let the refresh handle it
       // This ensures we're showing data from the database, not local state
       setShowModal(false);
@@ -494,7 +524,7 @@ const HomePage = () => {
                   className="w-10 h-10 rounded-xl object-cover border-2 border-white shadow-sm group-hover:scale-105 transition-transform duration-300"
                 />
                 <span className="hidden sm:block text-sm font-semibold text-gray-700">
-                  {userProfile?.full_name || userProfile?.username || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
+                  {userProfile?.username || userProfile?.full_name || 'Student'}
                 </span>
               </div>
             </div>

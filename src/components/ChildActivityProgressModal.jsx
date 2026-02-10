@@ -134,7 +134,15 @@ const ChildActivityProgressModal = ({ isOpen, onClose, child, activities, loadin
               {/* Activities List */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">All Activities</h3>
-                {activities.map((activity, index) => (
+                {activities
+                  .sort((a, b) => {
+                    // Sort: completed activities first, then not-started
+                    if (a.progressData.status === 'completed' && b.progressData.status !== 'completed') return -1;
+                    if (a.progressData.status !== 'completed' && b.progressData.status === 'completed') return 1;
+                    // If both have same status, sort by title alphabetically
+                    return a.title.localeCompare(b.title);
+                  })
+                  .map((activity, index) => (
                   <div 
                     key={activity.id} 
                     className="bg-gray-50 rounded-xl p-6 hover:bg-gray-100 transition-colors border border-gray-200"

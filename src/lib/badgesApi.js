@@ -145,6 +145,38 @@ export async function checkAndAwardBadges(studentId) {
     }
 
     console.log('🏆 Student progress data:', progress);
+    console.log('🏆 Activity names in progress:', progress.map(p => ({
+      activity_name: p.activity_name,
+      activity_title: p.activities?.title,
+      activity_category: p.activities?.category
+    })));
+
+    // Get student's streak data for login-based badges
+    const { data: streakData, error: streakError } = await supabase
+      .from('streaks')
+      .select('current_streak, longest_streak')
+      .eq('user_id', studentId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (streakError && streakError.code !== 'PGRST116') {
+      console.error('Error fetching streak data:', streakError);
+    }
+    const currentStreak = streakData?.current_streak || 0;
+    console.log('🏆 Current streak:', currentStreak);
+
+    // Get student's expressions (emotion wheel submissions)
+    const { data: expressions, error: expressionsError } = await supabase
+      .from('Expressions')
+      .select('id')
+      .eq('user_id', studentId);
+
+    if (expressionsError && expressionsError.code !== 'PGRST116') {
+      console.error('Error fetching expressions:', expressionsError);
+    }
+    const emotionCount = expressions?.length || 0;
+    console.log('🏆 Emotion wheel submissions:', emotionCount);
 
     const newlyEarnedBadges = [];
 
@@ -161,7 +193,30 @@ export async function checkAndAwardBadges(studentId) {
       console.log(`🏆 Checking badge: ${badge.title}`, criteria);
 
       // Badge criteria checks based on your badge definitions
-      if (criteria.activity === 'any' && criteria.count === 1) {
+      // Login Streak Badges
+      if (criteria.activity === 'login_streak' && criteria.days) {
+        // Check login streak badges (Routine Starter, Routine Builder, etc.)
+        shouldAward = currentStreak >= criteria.days;
+        console.log(`🏆 Login streak check: current=${currentStreak}, required=${criteria.days}, award=${shouldAward}`);
+      } else if (criteria.activity === 'emotion_wheel' && criteria.count) {
+        // Emotion wheel badges (Emotion Spotter, Emotion Explorer, etc.)
+        // Check expressions table for emotion submissions
+        shouldAward = emotionCount >= criteria.count;
+        console.log(`🏆 Emotion wheel check: count=${emotionCount}, required=${criteria.count}, award=${shouldAward}`);
+      } else if (criteria.activity === 'street_game' && criteria.rounds) {
+        // Street crossing game badges (First Step Crosser, Brave Crosser, etc.)
+        const streetActivities = progress.filter(p => 
+          p.activity_name?.toLowerCase().includes('street') ||
+          p.activity_name?.toLowerCase().includes('crossing') ||
+          p.activity_name?.toLowerCase().includes('safe') ||
+          p.activities?.title?.toLowerCase().includes('street') ||
+          p.activities?.title?.toLowerCase().includes('crossing') ||
+          p.activities?.title?.toLowerCase().includes('safe')
+        );
+        shouldAward = streetActivities.length >= criteria.rounds;
+        console.log(`🏆 Street crossing check: count=${streetActivities.length}, required=${criteria.rounds}, award=${shouldAward}`, 
+          'Street activities found:', streetActivities.map(p => ({ name: p.activity_name, title: p.activities?.title })));
+      } else if (criteria.activity === 'any' && criteria.count === 1) {
         // First Step badge
         shouldAward = progress.length > 0;
       } else if (criteria.score === 100 && criteria.activity === 'any') {
@@ -200,25 +255,24 @@ export async function checkAndAwardBadges(studentId) {
           p.activities?.category?.toLowerCase().includes('match')
         );
         shouldAward = matchingActivities.length >= 1;
-      } else if (criteria.activity === 'shape' && criteria.count === 2) {
-        // Shape Explorer badge
-        const shapeActivities = progress.filter(p => 
-          p.activities?.category?.toLowerCase().includes('shape') ||
-          p.activities?.title?.toLowerCase().includes('shape')
-        );
-        shouldAward = shapeActivities.length >= 2;
       } else if (criteria.activity === 'number_flashcard' && criteria.count === 1) {
         // Number Ninja badge
         const numberFlashcardActivities = progress.filter(p => 
-          (p.activities?.title?.toLowerCase().includes('number') && 
-           p.activities?.title?.toLowerCase().includes('flashcard')) ||
+          p.activity_name?.toLowerCase().includes('number') ||
+          p.activities?.title?.toLowerCase().includes('number') ||
           p.activities?.category?.toLowerCase().includes('number')
         );
         shouldAward = numberFlashcardActivities.length >= 1;
+        console.log(`🏆 Number Ninja check: count=${numberFlashcardActivities.length}, required=1, award=${shouldAward}`);
       } else if (criteria.unique_types === 3) {
-        // Consistency Champ badge
-        const uniqueCategories = new Set(progress.map(p => p.activities?.category).filter(Boolean));
-        shouldAward = uniqueCategories.size >= 3;
+        // Variety Champion badge - check for 3 different activity types
+        // Since you only have 2 main categories (Academic, Social/Daily Life Skills),
+        // we'll check for unique activity names instead
+        const uniqueActivityNames = new Set(
+          progress.map(p => p.activity_name || p.activities?.title).filter(Boolean)
+        );
+        shouldAward = uniqueActivityNames.size >= 3;
+        console.log(`🏆 Variety Champion check: unique activities=${uniqueActivityNames.size}, required=3, award=${shouldAward}`, Array.from(uniqueActivityNames));
       } else if (criteria.min_score === 80 && criteria.count === 5) {
         // High Achiever badge
         const highScoreActivities = progress.filter(p => p.score >= 80);
@@ -231,7 +285,138 @@ export async function checkAndAwardBadges(studentId) {
           p.activities?.category?.toLowerCase().includes('life')
         );
         shouldAward = dailyLifeActivities.length >= 3;
-      } else if (criteria.unique_types === 5) {
+      }
+      
+      // ========================================================================
+      // NEW COMPREHENSIVE BADGE CHECKS
+      // ========================================================================
+      
+      // ACADEMIC ACTIVITY BADGES (Difficulty-Based)
+      else if (criteria.activity === 'identification' && criteria.difficulty && criteria.count) {
+        // Identification badges: Skill Spotter, Recognition Rookie, Recognition Pro
+        const identificationActivities = progress.filter(p => 
+          (p.activities?.title?.toLowerCase().includes('identification') ||
+           p.activities?.category?.toLowerCase().includes('identification')) &&
+          p.activities?.difficulty === criteria.difficulty
+        );
+        shouldAward = identificationActivities.length >= criteria.count;
+        console.log(`🏆 Identification (${criteria.difficulty}) check: count=${identificationActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      else if (criteria.activity === 'number' && criteria.difficulty && criteria.count) {
+        // Number badges: Number Ninja, Number Strategist, Number Sensei
+        const numberActivities = progress.filter(p => 
+          (p.activities?.title?.toLowerCase().includes('number') ||
+           p.activities?.category?.toLowerCase().includes('number')) &&
+          p.activities?.difficulty === criteria.difficulty
+        );
+        shouldAward = numberActivities.length >= criteria.count;
+        console.log(`🏆 Number (${criteria.difficulty}) check: count=${numberActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      else if (criteria.activity === 'color' && criteria.difficulty && criteria.count) {
+        // Color badges: Color Spotter, Color Explorer, Color Master
+        const colorActivities = progress.filter(p => 
+          (p.activities?.title?.toLowerCase().includes('color') ||
+           p.activities?.category?.toLowerCase().includes('color')) &&
+          p.activities?.difficulty === criteria.difficulty
+        );
+        shouldAward = colorActivities.length >= criteria.count;
+        console.log(`🏆 Color (${criteria.difficulty}) check: count=${colorActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      else if (criteria.activity === 'puzzle' && criteria.difficulty && criteria.count) {
+        // Puzzle badges: Puzzle Starter, Puzzle Thinker, Puzzle Mastermind
+        const puzzleActivities = progress.filter(p => 
+          (p.activities?.title?.toLowerCase().includes('puzzle') ||
+           p.activities?.category?.toLowerCase().includes('puzzle')) &&
+          p.activities?.difficulty === criteria.difficulty
+        );
+        shouldAward = puzzleActivities.length >= criteria.count;
+        console.log(`🏆 Puzzle (${criteria.difficulty}) check: count=${puzzleActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      else if (criteria.activity === 'matching' && criteria.difficulty && criteria.count) {
+        // Matching badges: Match Maker, Logic Matcher, Perfect Matcher
+        const matchingActivities = progress.filter(p => 
+          (p.activities?.title?.toLowerCase().includes('match') ||
+           p.activities?.category?.toLowerCase().includes('match')) &&
+          p.activities?.difficulty === criteria.difficulty
+        );
+        shouldAward = matchingActivities.length >= criteria.count;
+        console.log(`🏆 Matching (${criteria.difficulty}) check: count=${matchingActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      else if (criteria.activity === 'memory' && criteria.difficulty && criteria.count) {
+        // Memory badges: Memory Observer, Memory Builder, Memory Champion
+        const memoryActivities = progress.filter(p => 
+          (p.activities?.title?.toLowerCase().includes('memory') ||
+           p.activities?.category?.toLowerCase().includes('memory')) &&
+          p.activities?.difficulty === criteria.difficulty
+        );
+        shouldAward = memoryActivities.length >= criteria.count;
+        console.log(`🏆 Memory (${criteria.difficulty}) check: count=${memoryActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      
+      // SOCIAL & DAILY LIFE SKILL BADGES (Progression-Based)
+      else if (criteria.activity === 'cashier' && criteria.count) {
+        // Cashier badges: Cashier Beginner, Smart Shopper, Checkout Champion
+        const cashierActivities = progress.filter(p => 
+          p.activities?.title?.toLowerCase().includes('cashier') ||
+          p.activity_name?.toLowerCase().includes('cashier')
+        );
+        shouldAward = cashierActivities.length >= criteria.count;
+        console.log(`🏆 Cashier check: count=${cashierActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      else if (criteria.activity === 'money' && criteria.count) {
+        // Money badges: Money Explorer, Value Identifier, Money Smart Star
+        const moneyActivities = progress.filter(p => 
+          p.activities?.title?.toLowerCase().includes('money') ||
+          p.activity_name?.toLowerCase().includes('money')
+        );
+        shouldAward = moneyActivities.length >= criteria.count;
+        console.log(`🏆 Money check: count=${moneyActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      else if (criteria.activity === 'greeting' && criteria.count) {
+        // Greeting badges: First Greeting, Friendly Speaker, Social Confidence Star
+        const greetingActivities = progress.filter(p => 
+          p.activities?.title?.toLowerCase().includes('greeting') ||
+          p.activities?.title?.toLowerCase().includes('social greeting') ||
+          p.activity_name?.toLowerCase().includes('greeting')
+        );
+        shouldAward = greetingActivities.length >= criteria.count;
+        console.log(`🏆 Greeting check: count=${greetingActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      else if (criteria.activity === 'hygiene' && criteria.count) {
+        // Hygiene badges: Hygiene Starter, Clean Habit Builder, Hygiene Hero
+        const hygieneActivities = progress.filter(p => 
+          p.activities?.title?.toLowerCase().includes('hygiene') ||
+          p.activity_name?.toLowerCase().includes('hygiene')
+        );
+        shouldAward = hygieneActivities.length >= criteria.count;
+        console.log(`🏆 Hygiene check: count=${hygieneActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      else if (criteria.activity === 'chore' && criteria.count) {
+        // Chore badges: Chore Starter, Helpful Hands, Household Helper Hero
+        const choreActivities = progress.filter(p => 
+          p.activities?.title?.toLowerCase().includes('chore') ||
+          p.activities?.title?.toLowerCase().includes('household') ||
+          p.activity_name?.toLowerCase().includes('chore')
+        );
+        shouldAward = choreActivities.length >= criteria.count;
+        console.log(`🏆 Chore check: count=${choreActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      else if (criteria.activity === 'street' && criteria.count) {
+        // Street crossing badges: Safety Learner, Street Smart, Safety Champion
+        const streetActivities = progress.filter(p => 
+          p.activities?.title?.toLowerCase().includes('street') ||
+          p.activities?.title?.toLowerCase().includes('crossing') ||
+          p.activity_name?.toLowerCase().includes('street')
+        );
+        shouldAward = streetActivities.length >= criteria.count;
+        console.log(`🏆 Street crossing check: count=${streetActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+      }
+      
+      // ========================================================================
+      // END NEW BADGE CHECKS
+      // ========================================================================
+      
+      else if (criteria.unique_types === 5) {
         // All-Rounder badge - be more flexible with category detection
         const categories = progress.map(p => {
           // Get the category from the activity

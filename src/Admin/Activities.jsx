@@ -65,7 +65,7 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
       // Calculate average scores
       Object.keys(stats).forEach(activityId => {
         if (stats[activityId].totalCompletions > 0) {
-          stats[activityId].averageScore = Math.round(stats[activityId].totalScore / stats[activityId].totalCompletions);
+          stats[activityId].averageScore = Math.min(100, Math.round(stats[activityId].totalScore / stats[activityId].totalCompletions));
         }
       });
 
@@ -106,14 +106,19 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
             lastCompleted: null 
           };
           
+          // Cap average score at 100%
+          stats.averageScore = Math.min(100, stats.averageScore || 0);
+          
           // Debug: Log the raw difficulty data
           console.log('Activity:', activity.title, 'Raw Difficulties:', activity.Difficulties, 'Difficulty value:', activity.Difficulties?.difficulty);
+          console.log('Activity Type from DB:', activity.activity_type);
           
           return {
             id: activity.id,
             title: activity.title,
             description: activity.description,
             category: activity.Categories?.category_name || 'Unknown',
+            activityType: activity.activity_type || 'Other',
             difficulty: activity.Difficulties?.difficulty || 'Intermediate',
             duration: activity.duration || '10-15 min',
             participants: activity.participants || 0,
@@ -428,6 +433,16 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
 
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">{activity.description}</p>
 
+                {/* Activity Type and Category */}
+                <div className="flex items-center space-x-2 mb-4">
+                  <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-200">
+                    {activity.activityType}
+                  </span>
+                  <span className="bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-xs font-medium border border-purple-200">
+                    {activity.category}
+                  </span>
+                </div>
+
                 {/* Usage Statistics */}
                 <div className="space-y-3 mb-4">
                   <div className="flex justify-between items-center">
@@ -437,7 +452,7 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
                   
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Average Score</span>
-                    <span className="font-semibold text-green-600">{activity.averageScore || 0}%</span>
+                    <span className="font-semibold text-green-600">{Math.min(100, activity.averageScore || 0)}%</span>
                   </div>
                   
                   <div className="flex justify-between items-center">

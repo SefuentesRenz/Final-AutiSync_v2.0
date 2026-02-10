@@ -110,7 +110,7 @@ const ActivityDetailsModal = ({ isOpen, onClose, activity }) => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-600 mb-1">Activity Type</label>
-                  <p className="text-gray-800 font-medium">🔍 Identification (What is this?)</p>
+                  <p className="text-gray-800 font-medium">{activity.activityType || 'Other'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-600 mb-1">Category</label>

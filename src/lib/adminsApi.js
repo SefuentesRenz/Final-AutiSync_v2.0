@@ -2,9 +2,9 @@
 import { supabase } from './supabase';
 
 // Create a new admin
-export async function createAdmin({ user_id, full_name, email, phone_number, address, department, permissions }) {
+export async function createAdmin({ user_id, full_name, email, phone_number, address, department, permissions, account_status }) {
   try {
-    console.log('adminsApi: Creating admin with data:', { user_id, full_name, email, phone_number, address, department, permissions });
+    console.log('adminsApi: Creating admin with data:', { user_id, full_name, email, phone_number, address, department, permissions, account_status });
     
     const adminData = {
       user_id: user_id, // Direct reference to auth.users.id
@@ -13,7 +13,8 @@ export async function createAdmin({ user_id, full_name, email, phone_number, add
       phone_number,
       address,
       department,
-      permissions: permissions || {} // Default to empty object for jsonb
+      permissions: permissions || {}, // Default to empty object for jsonb
+      account_status: account_status || 'approved' // TEMPORARY: Default to approved (pending rule removed)
     };
 
     // Remove null/undefined values
