@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AcademicCapIcon, PlayIcon, ClockIcon, StarIcon, EyeIcon, ChartBarIcon } from '@heroicons/react/24/solid';
-import ActivityDetailsModal from '../components/ActivityDetailsModal';
+import { AcademicCapIcon, PlayIcon, ClockIcon, StarIcon, ChartBarIcon } from '@heroicons/react/24/solid';
 import { getActivitiesWithDetails } from '../lib/activitiesApi';
 import { supabase } from '../lib/supabase';
 
 const ActivitiesPage = ({ isOpen, onClose, activity }) => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedActivity, setSelectedActivity] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -23,52 +20,68 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
 
   const fetchActivityStatsData = async () => {
     try {
-      // Get activity usage statistics
+      // Get activity usage statistics with activity details
       const { data: progressData, error: progressError } = await supabase
         .from('user_activity_progress')
-        .select('activity_id, score, date_completed');
+        .select(`
+          activity_id, 
+          score, 
+          date_completed,
+          activities (
+            title,
+            activity_type
+          )
+        `);
 
       if (progressError) {
         console.error('Error fetching activity stats:', progressError);
         return {};
       }
 
-      // Calculate stats for each activity
+      // Calculate stats grouped by activity title (not activity_id)
+      // This way all difficulty levels of the same activity are counted together
       const stats = {};
       progressData?.forEach(record => {
-        const activityId = record.activity_id;
-        if (!stats[activityId]) {
-          stats[activityId] = {
+        // Use activity title as the key to group all difficulty levels together
+        const activityTitle = record.activities?.title || 'Unknown';
+        
+        if (!stats[activityTitle]) {
+          stats[activityTitle] = {
             totalCompletions: 0,
             totalScore: 0,
             recentCompletions: 0,
-            lastCompleted: null
+            lastCompleted: null,
+            activityIds: new Set() // Track which activity IDs contribute to this
           };
         }
         
-        stats[activityId].totalCompletions++;
-        stats[activityId].totalScore += record.score || 0;
+        stats[activityTitle].totalCompletions++;
+        stats[activityTitle].totalScore += record.score || 0;
+        stats[activityTitle].activityIds.add(record.activity_id);
         
         const completedDate = new Date(record.date_completed);
         const oneDayAgo = new Date();
         oneDayAgo.setDate(oneDayAgo.getDate() - 1);
         
         if (completedDate > oneDayAgo) {
-          stats[activityId].recentCompletions++;
+          stats[activityTitle].recentCompletions++;
         }
         
-        if (!stats[activityId].lastCompleted || completedDate > new Date(stats[activityId].lastCompleted)) {
-          stats[activityId].lastCompleted = record.date_completed;
+        if (!stats[activityTitle].lastCompleted || completedDate > new Date(stats[activityTitle].lastCompleted)) {
+          stats[activityTitle].lastCompleted = record.date_completed;
         }
       });
 
       // Calculate average scores
-      Object.keys(stats).forEach(activityId => {
-        if (stats[activityId].totalCompletions > 0) {
-          stats[activityId].averageScore = Math.min(100, Math.round(stats[activityId].totalScore / stats[activityId].totalCompletions));
+      Object.keys(stats).forEach(activityTitle => {
+        if (stats[activityTitle].totalCompletions > 0) {
+          stats[activityTitle].averageScore = Math.min(100, Math.round(stats[activityTitle].totalScore / stats[activityTitle].totalCompletions));
         }
+        // Convert Set to Array for easier debugging
+        stats[activityTitle].activityIds = Array.from(stats[activityTitle].activityIds);
       });
 
+      console.log('📊 Activity Stats (grouped by title):', stats);
       return stats;
     } catch (err) {
       console.error('Error in fetchActivityStatsData:', err);
@@ -99,7 +112,8 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
       } else {
         // Transform the data to match the expected format
         const transformedActivities = activitiesData?.map(activity => {
-          const stats = statsResult[activity.id] || { 
+          // Look up stats by activity title (not ID) since we're grouping all difficulty levels together
+          const stats = statsResult[activity.title] || { 
             totalCompletions: 0, 
             averageScore: 0, 
             recentCompletions: 0, 
@@ -109,15 +123,14 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
           // Cap average score at 100%
           stats.averageScore = Math.min(100, stats.averageScore || 0);
           
-          // Debug: Log the raw difficulty data
-          console.log('Activity:', activity.title, 'Raw Difficulties:', activity.Difficulties, 'Difficulty value:', activity.Difficulties?.difficulty);
-          console.log('Activity Type from DB:', activity.activity_type);
+          // Debug: Log the stats lookup
+          console.log('Activity:', activity.title, 'Stats:', stats);
           
           return {
             id: activity.id,
             title: activity.title,
             description: activity.description,
-            category: activity.Categories?.category_name || 'Unknown',
+            category: activity.category || 'Unknown',
             activityType: activity.activity_type || 'Other',
             difficulty: activity.Difficulties?.difficulty || 'Intermediate',
             duration: activity.duration || '10-15 min',
@@ -148,11 +161,22 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
 
   const filteredActivities = activities
     .filter(activity => {
-      const matchesCategory = selectedCategory === 'all' || activity.category === selectedCategory;
-      console.log('Filtering for category:', selectedCategory, 'Activity:', activity.title, 'Activity category:', activity.category, 'Matches:', matchesCategory);
-      return matchesCategory;
+      if (selectedCategory === 'all') return true;
+      
+      const activityCategory = activity.category?.toLowerCase() || '';
+      const filterCategory = selectedCategory.toLowerCase();
+      
+      // Handle partial matches for flexibility
+      if (filterCategory === 'academic') {
+        return activityCategory.includes('academic');
+      } else if (filterCategory === 'daily/social life skill') {
+        return activityCategory.includes('social') || activityCategory.includes('daily') || activityCategory.includes('life');
+      }
+      
+      // Exact match as fallback
+      return activityCategory === filterCategory;
     })
-    .sort((a, b) => {
+    .sort((a, b) => {   
       // Sort by total completions (most used first), then by title alphabetically
       const aCompletions = a.totalCompletions || 0;
       const bCompletions = b.totalCompletions || 0;
@@ -189,6 +213,26 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
     if (diffInHours < 24) return `${diffInHours}h ago`;
     const diffInDays = Math.floor(diffInHours / 24);
     return `${diffInDays}d ago`;
+  };
+
+  // Get the number of items/questions for an activity based on its type
+  const getActivityItemCount = (activityType, difficulty) => {
+    const itemCounts = {
+      'Identification': 5,
+      'Numbers': 5,
+      'Colors': 5,
+      'Matching Type': 4, // 4 pairs to match
+      'Academic Puzzles': 5,
+      'Visual Memory Challenge': 3, // 3 rounds
+      'Cashier Game': 5,
+      'Money Value Game': 5,
+      'Social Greetings': 5,
+      'Hygiene Hero': 5,
+      'Safe Street Crossing': 5,
+      'Household Chores Helper': 3
+    };
+    
+    return itemCounts[activityType] || 5; // Default to 5 if not found
   };
 
   if (loading) {
@@ -433,15 +477,6 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
 
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">{activity.description}</p>
 
-                {/* Activity Type and Category */}
-                <div className="flex items-center space-x-2 mb-4">
-                  <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-200">
-                    {activity.activityType}
-                  </span>
-                  <span className="bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-xs font-medium border border-purple-200">
-                    {activity.category}
-                  </span>
-                </div>
 
                 {/* Usage Statistics */}
                 <div className="space-y-3 mb-4">
@@ -474,20 +509,9 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
                     </span>
                     <span className="flex items-center space-x-1">
                       <StarIcon className="h-4 w-4" />
-                      <span>{activity.points} pts</span>
+                      <span>{getActivityItemCount(activity.activityType, activity.difficulty)} items</span>
                     </span>
                   </div>
-                  
-                  <button
-                    onClick={() => {
-                      setSelectedActivity(activity);
-                      setIsModalOpen(true);
-                    }}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors duration-200 flex items-center space-x-2"
-                  >
-                    <EyeIcon className="h-4 w-4" />
-                    <span>View Details</span>
-                  </button>
                 </div>
               </div>
             </div>
@@ -503,15 +527,7 @@ const ActivitiesPage = ({ isOpen, onClose, activity }) => {
             <p className="text-gray-500">Try selecting a different category</p>
           </div>
         )}
-      
 
-      {/* Activity Details Modal */}
-      <ActivityDetailsModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        activity={selectedActivity}
-        isViewOnly={true}
-      />
     </div>
   );
 };

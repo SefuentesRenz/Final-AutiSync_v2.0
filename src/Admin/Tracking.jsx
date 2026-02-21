@@ -584,7 +584,7 @@ const Tracking = () => {
           const isSocialDailyLife = categoryName.includes('social') || 
                                      categoryName.includes('daily') || 
                                      categoryName.includes('life') ||
-                                     socialDailyLifeActivities.includes(activityTitle) ||
+                                     socialDailyLifeActivities.some(s => activityTitle === s || activityTitle.startsWith(s + ' -')) ||
                                      !activity.difficultyId ||
                                      activity.difficultyId === null ||
                                      activity.difficultyId === undefined;

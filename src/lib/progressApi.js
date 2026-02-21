@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import { checkAndAwardBadges } from './badgesApi';
 
 // Record activity completion and score
-export async function recordActivityProgress(studentId, activityId, score, completionStatus = 'completed', difficultyId = null) {
+export async function recordActivityProgress(studentId, activityId, score, completionStatus = 'completed', difficultyId = null, activityNameOverride = null) {
   try {
     console.log('🔄 Recording activity progress:', { studentId, activityId, score, completionStatus, difficultyId });
 
@@ -42,68 +42,34 @@ export async function recordActivityProgress(studentId, activityId, score, compl
     }
     console.log('✅ Student profile verified:', studentProfile);
 
-    // Check if progress already exists for this student and activity
-    console.log('🔍 Checking for existing progress...');
-    const { data: existingProgress, error: checkError } = await supabase
-  .from('user_activity_progress')
-      .select('*')
-      .eq('user_id', studentId) // Use user_id not student_id
-      .eq('activity_id', activityId)
-      .single();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('❌ Error checking existing progress:', checkError);
-      return { data: null, error: checkError };
-    }
-
-    console.log('📊 Existing progress:', existingProgress);
+    // Always insert a NEW record for every attempt so every session appears
+    // separately in the admin dashboard (no attempt ever overwrites another).
+    console.log('➕ Inserting new progress record...');
 
     let result;
-    if (existingProgress) {
-      // Update existing progress
-      console.log('📝 Updating existing progress...');
-      const updateData = {
-        score: score,
-        completion_status: completionStatus,
-        student_name: studentName,
-        date_completed: new Date().toISOString()
-      };
-      // Add difficulty_id if provided
-      if (difficultyId) {
-        updateData.difficulty_id = difficultyId;
-        console.log('📝 Including difficulty_id in update:', difficultyId);
-      }
-      const { data, error } = await supabase
-        .from('user_activity_progress')
-        .update(updateData)
-        .eq('user_id', studentId) // Use user_id not student_id
-        .eq('activity_id', activityId)
-        .select();
-      result = { data, error };
-      console.log('📝 Update result:', result);
-    } else {
-      // Insert new progress record
-      console.log('➕ Inserting new progress record...');
-
-      // Fetch activity name (title) from activities table
-      let activityName = null;
-      try {
-        const { data: activityData, error: activityError } = await supabase
-          .from('activities')
-          .select('title')
-          .eq('id', activityId)
-          .single();
-        if (activityError) {
-          console.error('❌ Error fetching activity name:', activityError);
-        } else {
-          activityName = activityData?.title || null;
+    {
+      // Use override name if provided (e.g. "Household Chores Helper - Making the Bed")
+      // Otherwise fetch from activities table
+      let activityName = activityNameOverride || null;
+      if (!activityName) {
+        try {
+          const { data: activityData, error: activityError } = await supabase
+            .from('activities')
+            .select('title')
+            .eq('id', activityId)
+            .single();
+          if (activityError) {
+            console.error('❌ Error fetching activity name:', activityError);
+          } else {
+            activityName = activityData?.title || null;
+          }
+        } catch (err) {
+          console.error('❌ Exception fetching activity name:', err);
         }
-      } catch (err) {
-        console.error('❌ Exception fetching activity name:', err);
       }
 
       const progressRecord = {
-        user_id: studentId, // Use user_id not student_id
+        user_id: studentId,
         activity_id: activityId,
         activity_name: activityName,
         score: score,
@@ -111,7 +77,6 @@ export async function recordActivityProgress(studentId, activityId, score, compl
         student_name: studentName,
         date_completed: new Date().toISOString()
       };
-      // Add difficulty_id if provided
       if (difficultyId) {
         progressRecord.difficulty_id = difficultyId;
         console.log('➕ Including difficulty_id in insert:', difficultyId);
@@ -377,7 +342,7 @@ export async function getAllStudentsProgress() {
       const student = studentProgressMap[studentId];
       student.activities.push({
         activityId: record.activity_id,
-        activityTitle: activity?.title || 'Unknown Activity',
+        activityTitle: record.activity_name || activity?.title || 'Unknown Activity',
         categoryId: category?.category_name || 'Other',
         difficultyId: difficulty?.difficulty || null,  // Add difficulty name here
         score: record.score,
@@ -619,7 +584,7 @@ export async function getStudentProgress(studentId, limit = 50) {
       return {
         id: record.id,
         activityId: record.activity_id,
-        activityTitle: activity?.title || 'Unknown Activity',
+        activityTitle: record.activity_name || activity?.title || 'Unknown Activity',
         categoryId: activity?.category_id,
         categoryName: category?.category_name || 'Other',
         difficultyId: activity?.difficulty_id,

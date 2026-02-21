@@ -53,7 +53,7 @@ const LandingPage = () => {
 
       {/* Main Content */}
       <main className="relative z-10">
-        <div className="container text-center">
+        <div className="container mx-auto px-6 text-center">
           {/* Welcome Section */}
           <section className="py-5">
             <div className="max-w-4xl mx-auto">
@@ -209,7 +209,7 @@ const LandingPage = () => {
 
           {/* Call to Action */}
           <section className="pb-10">
-            <div className="w-380 mx-auto bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 text-white shadow-2xl animate-float">
+            <div className="max-w-4xl mx-auto bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 text-white shadow-2xl animate-float">
               <h3 className="text-3xl font-bold mb-4 flex items-center justify-center">
                 <span className="text-4xl mr-3 animate-wiggle">🚀</span>
                 Ready to Start Learning?

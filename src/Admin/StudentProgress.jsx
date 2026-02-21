@@ -602,7 +602,7 @@ const StudentProgress = () => {
     // Robust check for Social/Daily Life Skill or missing difficulty
     const isSocialDailyLife = categoryName.includes('social') ||
       categoryName.includes('daily') ||
-      socialDailyLifeActivities.includes(normalizedActivityTitle) ||
+      socialDailyLifeActivities.some(s => normalizedActivityTitle === s || normalizedActivityTitle.startsWith(s + ' -')) ||
       !difficultyName ||
       normalizedDifficulty === 'n/a' ||
       normalizedDifficulty === 'null' ||

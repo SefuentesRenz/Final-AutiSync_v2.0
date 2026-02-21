@@ -42,6 +42,68 @@ const OptimizedVideo = memo(({ src, className, autoPlay, loop, muted, controls, 
   );
 });
 
+// ============================================================
+// Money Value Game – item pool & budget pool (outside component
+// so they are stable across re-renders)
+// ============================================================
+const MONEY_ITEMS_POOL = [
+  // Food & drinks – cheap
+  { name: "Juice",       image: "🥤",  price: 10  },
+  { name: "Water",       image: "💧",  price: 8   },
+  { name: "Bread",       image: "🍞",  price: 15  },
+  { name: "Candy",       image: "🍬",  price: 5   },
+  { name: "Banana",      image: "🍌",  price: 8   },
+  { name: "Egg",         image: "🥚",  price: 8   },
+  { name: "Mango",       image: "🥭",  price: 12  },
+  { name: "Coffee",      image: "☕",  price: 25  },
+  { name: "Noodles",     image: "🍜",  price: 12  },
+  { name: "Milk",        image: "🥛",  price: 25  },
+  { name: "Chocolate",   image: "🍫",  price: 28  },
+  { name: "Apple",       image: "🍎",  price: 15  },
+  { name: "Cookie",      image: "🍪",  price: 20  },
+  { name: "Soda",        image: "🧋",  price: 18  },
+  { name: "Ice Cream",   image: "🍦",  price: 30  },
+  { name: "Hotdog",      image: "🌭",  price: 35  },
+  { name: "Pancake",     image: "🥞",  price: 40  },
+  { name: "Rice",        image: "🍚",  price: 45  },
+  { name: "Fries",       image: "🍟",  price: 45  },
+  { name: "Sandwich",    image: "🥪",  price: 55  },
+  { name: "Burger",      image: "🍔",  price: 85  },
+  { name: "Pizza",       image: "🍕",  price: 120 },
+  // School & office
+  { name: "Pencil",      image: "✏️",  price: 8   },
+  { name: "Eraser",      image: "🩹",  price: 5   },
+  { name: "Ruler",       image: "📏",  price: 20  },
+  { name: "Notebook",    image: "📓",  price: 45  },
+  { name: "Crayon",      image: "🖍️",  price: 65  },
+  { name: "Book",        image: "📚",  price: 250 },
+  // Household & personal
+  { name: "Soap",        image: "🧼",  price: 25  },
+  { name: "Shampoo",     image: "🧴",  price: 55  },
+  { name: "Mug",         image: "🍵",  price: 85  },
+  { name: "Umbrella",    image: "☂️",  price: 180 },
+  // Clothes & toys
+  { name: "Toy Car",     image: "🚗",  price: 150 },
+  { name: "Doll",        image: "🪆",  price: 180 },
+  { name: "Toy",         image: "🧸",  price: 250 },
+  { name: "Shirt",       image: "👕",  price: 300 },
+  { name: "Shoes",       image: "👟",  price: 550 },
+  { name: "Bag",         image: "🎒",  price: 380 },
+  // Electronics & big-ticket items
+  { name: "Headphones",  image: "🎧",  price: 800   },
+  { name: "Bicycle",     image: "🚲",  price: 3500  },
+  { name: "Television",  image: "📺",  price: 8000  },
+  { name: "Tablet",      image: "🖥️",  price: 12000 },
+  { name: "Fridge",      image: "🧊",  price: 15000 },
+  { name: "Phone",       image: "📱",  price: 18000 },
+  { name: "Laptop",      image: "💻",  price: 35000 },
+  { name: "Motorcycle",  image: "🏍️",  price: 80000 },
+  { name: "Car",         image: "🚘",  price: 450000   },
+  { name: "House",       image: "🏠",  price: 2500000  },
+];
+
+const MONEY_BUDGET_POOL = [100, 150, 300, 500, 600, 700, 800, 1000, 5000, 10000];
+
 const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -107,6 +169,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   const [currentSpeaker, setCurrentSpeaker] = useState('customer'); // 'customer' or 'cashier'
   const [speechText, setSpeechText] = useState('');
   const [showThoughtBubble, setShowThoughtBubble] = useState(false);
+  const [randomizedCashierQuestions, setRandomizedCashierQuestions] = useState(null); // dynamically generated cashier orders
 
   // Hygiene game specific state
   const [hygieneScore, setHygieneScore] = useState(0);
@@ -149,6 +212,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   const [greetingScenarioIndex, setGreetingScenarioIndex] = useState(0); // Track which scenario in shuffled array
 
   // Money Value Game specific state
+  const [randomizedMoneyRounds, setRandomizedMoneyRounds] = useState(null); // dynamically generated rounds
   const [moneyScore, setMoneyScore] = useState(0);
   const [moneyRound, setMoneyRound] = useState(1);
   const [currentBudget, setCurrentBudget] = useState(0);
@@ -205,6 +269,8 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   const [currentChoreStep, setCurrentChoreStep] = useState(1);
   const [choreScore, setChoreScore] = useState(0);
   const [isChoreGameActive, setIsChoreGameActive] = useState(false);
+  const [choreSessionScore, setChoreSessionScore] = useState(0); // tracks correct answers in current single-chore session
+  const [shuffledChoreChoices, setShuffledChoreChoices] = useState([]); // randomized choices for current chore step
   const [completedSteps, setCompletedSteps] = useState([]);
   const [completedChoreSteps, setCompletedChoreSteps] = useState([]);
   const [showChoreAnimation, setShowChoreAnimation] = useState(false);
@@ -487,9 +553,9 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   };
 
   // Handle activity completion (record to database)
-  const handleActivityCompletion = async (studentId, activityId, score, status, difficultyId = null) => {
+  const handleActivityCompletion = async (studentId, activityId, score, status, difficultyId = null, activityNameOverride = null) => {
     try {
-      console.log('📝 Recording activity completion:', { studentId, activityId, score, status, difficultyId });
+      console.log('📝 Recording activity completion:', { studentId, activityId, score, status, difficultyId, activityNameOverride });
       
       // Import and call the progress API
       const { recordActivityProgress } = await import('../lib/progressApi');
@@ -525,8 +591,8 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       
       console.log('🎯 Final activity ID:', validActivityId, 'for', activity, difficulty);
       
-      // Pass difficultyId to recordActivityProgress
-      const result = await recordActivityProgress(studentId, validActivityId, score, status, difficultyId);
+      // Pass difficultyId and optional activityNameOverride to recordActivityProgress
+      const result = await recordActivityProgress(studentId, validActivityId, score, status, difficultyId, activityNameOverride);
       
       if (result.error) {
         console.error('❌ Error recording activity progress:', result.error);
@@ -2158,6 +2224,10 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   // Get current question and handle shuffling for matching games
   const originalQuestion = questions[currentQuestionIndex];
   const currentQuestion = (() => {
+    // Use randomized cashier orders when available
+    if (originalQuestion?.gameType === 'cashier' && randomizedCashierQuestions && randomizedCashierQuestions[currentQuestionIndex]) {
+      return randomizedCashierQuestions[currentQuestionIndex];
+    }
     if (originalQuestion?.gameType === 'matching' && originalQuestion.rightItems) {
       // Use shuffled items from state or create new shuffled version
       if (shuffledRightItems) {
@@ -2201,7 +2271,8 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     }
   }, [dragConnections, currentQuestion, isAnswersChecked]);
   
-  const isCashierGame = currentQuestion?.gameType === 'cashier';
+  const isCashierGameRaw = originalQuestion?.gameType === 'cashier';
+  const isCashierGame = isCashierGameRaw;
   const isHygieneGame = currentQuestion?.gameType === 'hygiene';
   const isMatchingGame = currentQuestion?.gameType === 'matching';
   const isPuzzleGame = currentQuestion?.gameType === 'puzzle' || activity === "Academic Puzzles";
@@ -2801,6 +2872,115 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     setGreetingScenarioIndex(0);
   };
 
+  // ========================================================================
+  // Money Value Game – dynamic round generator (randomizes budget & items)
+  // ========================================================================
+  const generateRandomMoneyRounds = (numRounds = 3) => {
+    const shuffledBudgets = shuffleArray([...MONEY_BUDGET_POOL]);
+    const usedBudgets = new Set();
+    const rounds = [];
+
+    for (let i = 0; i < numRounds; i++) {
+      // Pick a unique budget for this round
+      const budget = shuffledBudgets.find(b => !usedBudgets.has(b)) || shuffledBudgets[i % shuffledBudgets.length];
+      usedBudgets.add(budget);
+
+      const affordable    = shuffleArray(MONEY_ITEMS_POOL.filter(it => it.price <= budget));
+      const notAffordable = shuffleArray(MONEY_ITEMS_POOL.filter(it => it.price > budget));
+
+      // Always pick 2 affordable + 2 not-affordable, then shuffle the 4
+      const selected = shuffleArray([
+        ...affordable.slice(0, 2),
+        ...notAffordable.slice(0, 2),
+      ]);
+
+      rounds.push({
+        roundId: i + 1,
+        budget,
+        items: selected.map((item, idx) => ({
+          id: i * 4 + idx + 1,
+          ...item,
+          affordable: item.price <= budget,
+        })),
+      });
+    }
+    return rounds;
+  };
+
+  // ========================================================================
+  // Cashier game - dynamic order generator (randomizes combos each session)
+  // ========================================================================
+  const CASHIER_MENU = [
+    { name: "Burger", image: "🍔", price: "$3.99" },
+    { name: "Fries", image: "🍟", price: "$2.49" },
+    { name: "Pizza", image: "🍕", price: "$4.99" },
+    { name: "Hot Dog", image: "🌭", price: "$2.99" },
+    { name: "Drink", image: "🥤", price: "$1.99" },
+    { name: "Ice Cream", image: "🍦", price: "$2.99" },
+  ];
+
+  const generateRandomCashierOrders = (numRounds = 5) => {
+    const orderSizes = [1, 2, 2, 3, 3]; // mix of 1, 2, and 3-item orders
+    const shuffledSizes = shuffleArray(orderSizes);
+    const usedCombos = new Set();
+    const orders = [];
+
+    for (let i = 0; i < numRounds; i++) {
+      const size = shuffledSizes[i];
+      let orderItems;
+      let comboKey;
+
+      // Keep generating until we get a unique combo
+      do {
+        const shuffledMenu = shuffleArray([...CASHIER_MENU]);
+        orderItems = shuffledMenu.slice(0, size);
+        comboKey = orderItems.map(it => it.name).sort().join(',');
+      } while (usedCombos.has(comboKey));
+      usedCombos.add(comboKey);
+
+      // Build natural-sounding order text
+      const itemTexts = orderItems.map(it => `${it.image}`);
+      const nameTexts = orderItems.map(it => `${it.name.toLowerCase()}${it.image}`);
+      let questionText;
+      if (nameTexts.length === 1) {
+        const phrases = [
+          `I'll take a ${nameTexts[0]}, please!`,
+          `Can I have a ${nameTexts[0]}?`,
+          `One ${nameTexts[0]}, please!`,
+        ];
+        questionText = phrases[Math.floor(Math.random() * phrases.length)];
+      } else if (nameTexts.length === 2) {
+        const phrases = [
+          `I want a ${nameTexts[0]} and ${nameTexts[1]}, please!`,
+          `Can I have a ${nameTexts[0]} and ${nameTexts[1]}?`,
+          `I'd like ${nameTexts[0]} and ${nameTexts[1]}, please!`,
+        ];
+        questionText = phrases[Math.floor(Math.random() * phrases.length)];
+      } else {
+        const last = nameTexts.pop();
+        const phrases = [
+          `Can I get ${nameTexts.join(', ')}, and ${last}?`,
+          `I want ${nameTexts.join(', ')}, and ${last}, please!`,
+          `I'd like ${nameTexts.join(', ')}, and ${last}!`,
+        ];
+        questionText = phrases[Math.floor(Math.random() * phrases.length)];
+      }
+
+      const correctAnswer = orderItems.map(it => it.name);
+      // Shuffle menu options order each round
+      const menuOptions = shuffleArray([...CASHIER_MENU]);
+
+      orders.push({
+        questionText,
+        orderItems: correctAnswer,
+        menuOptions,
+        correctAnswer,
+        gameType: "cashier",
+      });
+    }
+    return orders;
+  };
+
   // Cashier game functions
   const handleItemSelect = (item) => {
     if (!isCashierGame) return;
@@ -2869,7 +3049,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   };
 
   // Money Value Game functions
-  const initializeMoneyGame = () => {
+  const initializeMoneyGame = (roundsParam = null) => {
     if (isMoneyGame && !isMoneyGameActive) {
       setIsMoneyGameActive(true);
       setMoneyRound(1);
@@ -2886,12 +3066,11 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       setRoundScores([]);
       setCurrentRoundAttempts(0);
       
-      // Get first round data
-      const gameData = questions[0];
-      if (gameData && gameData.rounds) {
-        const firstRound = gameData.rounds[0];
-        setCurrentBudget(firstRound.budget);
-        setCurrentMoneyItems(firstRound.items);
+      // Prefer freshly-passed rounds > already-in-state rounds > static fallback
+      const rounds = roundsParam || randomizedMoneyRounds || questions[0]?.rounds;
+      if (rounds && rounds[0]) {
+        setCurrentBudget(rounds[0].budget);
+        setCurrentMoneyItems(rounds[0].items);
       }
     }
   };
@@ -2988,11 +3167,10 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       setIsRoundComplete(false);
       setCurrentRoundAttempts(0);
       
-      const gameData = questions[0];
-      if (gameData && gameData.rounds) {
-        const nextRoundData = gameData.rounds[nextRound - 1];
-        setCurrentBudget(nextRoundData.budget);
-        setCurrentMoneyItems(nextRoundData.items);
+      const rounds = randomizedMoneyRounds || (questions[0]?.rounds);
+      if (rounds && rounds[nextRound - 1]) {
+        setCurrentBudget(rounds[nextRound - 1].budget);
+        setCurrentMoneyItems(rounds[nextRound - 1].items);
       }
     } else {
       completeMoneyGame();
@@ -3073,16 +3251,44 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     initializeMoneyGame();
   };
 
+  // Generate randomized money rounds AND initialize game in one effect
+  // (combining avoids stale-closure timing issues between two separate effects)
+  useEffect(() => {
+    if (isMoneyGame && !randomizedMoneyRounds && !isMoneyGameActive) {
+      const rounds = generateRandomMoneyRounds(3);
+      setRandomizedMoneyRounds(rounds);
+      initializeMoneyGame(rounds); // pass directly so round 1 is always randomized
+      console.log('💰 Generated randomized money rounds:', rounds.map(r => ({ budget: r.budget, items: r.items.map(it => it.name) })));
+    }
+    if (!isMoneyGame && randomizedMoneyRounds) {
+      setRandomizedMoneyRounds(null);
+    }
+  }, [isMoneyGame]);
+
+  // Generate randomized cashier orders once when the cashier game starts
+  useEffect(() => {
+    if (isCashierGame && !randomizedCashierQuestions) {
+      const generated = generateRandomCashierOrders(5);
+      setRandomizedCashierQuestions(generated);
+      console.log('🛒 Generated randomized cashier orders:', generated.map(o => o.orderItems));
+    }
+    // Reset when leaving cashier game
+    if (!isCashierGame && randomizedCashierQuestions) {
+      setRandomizedCashierQuestions(null);
+    }
+  }, [isCashierGame]);
+
   // Initialize cashier game when question starts
   useEffect(() => {
     if (isCashierGame && gameStep === 1) {
+      const q = (randomizedCashierQuestions && randomizedCashierQuestions[currentQuestionIndex]) || currentQuestion;
       setTimeout(() => {
         setCurrentSpeaker('customer');
-        setSpeechText(currentQuestion.questionText);
+        setSpeechText(q.questionText);
         setShowThoughtBubble(true);
       }, 1000);
     }
-  }, [currentQuestionIndex, isCashierGame]);
+  }, [currentQuestionIndex, isCashierGame, randomizedCashierQuestions]);
 
   // Initialize hygiene game when activity starts
   useEffect(() => {
@@ -3106,9 +3312,9 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     }
   }, [currentQuestionIndex, isGreetingsGame]);
 
-  // Initialize money value game when activity starts
+  // Initialize money value game when activity starts (fallback only if randomized rounds aren't ready)
   useEffect(() => {
-    if (isMoneyGame) {
+    if (isMoneyGame && !randomizedMoneyRounds) {
       initializeMoneyGame();
     }
   }, [currentQuestionIndex, isMoneyGame]);
@@ -3185,6 +3391,17 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       initializeChoreGame();
     }
   }, [isChoreGame]);
+
+  // Shuffle chore choices whenever the chore step or chore ID changes
+  useEffect(() => {
+    if (isChoreGame && currentChoreId) {
+      const choreData = questions.find(q => q.choreId === currentChoreId);
+      const currentStep = choreData?.steps?.[currentChoreStep];
+      if (currentStep?.choices) {
+        setShuffledChoreChoices(shuffleArray([...currentStep.choices]));
+      }
+    }
+  }, [isChoreGame, currentChoreId, currentChoreStep]);
 
   // Handle moving to item selection step
   const handleStartSelecting = () => {
@@ -3503,16 +3720,53 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
   };
 
   // Household Chores Helper Game Functions
-  const getRandomChore = () => {
+
+  // Helper: get chore completion data from localStorage for current student
+  const getChoreCompletionData = () => {
+    try {
+      const key = `choreCompletion_${user?.id || 'guest'}`;
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : { completedChores: [], cycleCount: 0 };
+    } catch {
+      return { completedChores: [], cycleCount: 0 };
+    }
+  };
+
+  // Helper: save chore completion data to localStorage
+  const saveChoreCompletionData = (data) => {
+    try {
+      const key = `choreCompletion_${user?.id || 'guest'}`;
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {
+      console.error('Failed to save chore completion data:', e);
+    }
+  };
+
+  // Pick one random chore that the student hasn't scored 100% on yet in this cycle
+  const getRandomUnfinishedChore = () => {
     if (!questions || questions.length === 0) return null;
-    const randomIndex = Math.floor(Math.random() * questions.length);
-    return questions[randomIndex];
+
+    const completionData = getChoreCompletionData();
+    const allChoreIds = questions.map(q => q.choreId);
+    const available = allChoreIds.filter(id => !completionData.completedChores.includes(id));
+
+    // If all chores are completed with 100%, reset the cycle
+    if (available.length === 0) {
+      const resetData = { completedChores: [], cycleCount: (completionData.cycleCount || 0) + 1 };
+      saveChoreCompletionData(resetData);
+      // After reset, all chores are available again
+      const randomIndex = Math.floor(Math.random() * allChoreIds.length);
+      return questions.find(q => q.choreId === allChoreIds[randomIndex]);
+    }
+
+    const randomIndex = Math.floor(Math.random() * available.length);
+    return questions.find(q => q.choreId === available[randomIndex]);
   };
 
   const initializeChoreGame = () => {
     if (!questions || questions.length === 0) return;
     
-    const choreData = getRandomChore();
+    const choreData = getRandomUnfinishedChore();
     if (!choreData) return;
     
     setCurrentChoreId(choreData.choreId);
@@ -3524,6 +3778,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     setDroppedChoreItems([]);
     setDraggedItem(null);
     setChoreScore(0);
+    setChoreSessionScore(0);
     setIsChoreComplete(false);
     setShowChoreFeedback(false);
     setChoreFeedbackType('');
@@ -3642,6 +3897,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     setDroppedChoreItems([]);
     setDraggedItem(null);
     setChoreScore(0);
+    setChoreSessionScore(0);
     setIsChoreComplete(false);
     setShowChoreFeedback(false);
     setChoreFeedbackType('');
@@ -3651,6 +3907,23 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     setSelectedAnswer(null);
     setIsAnswered(false);
   };
+
+  // Save chore as completed (100%) when a single-chore session ends with perfect score
+  useEffect(() => {
+    if (isChoreGame && isChoreComplete && currentChoreId) {
+      const choreData = questions.find(q => q.choreId === currentChoreId);
+      const totalSteps = choreData?.steps?.length || 3;
+      // Check if the student scored 100% on this chore
+      if (score === totalSteps) {
+        const completionData = getChoreCompletionData();
+        if (!completionData.completedChores.includes(currentChoreId)) {
+          completionData.completedChores.push(currentChoreId);
+          saveChoreCompletionData(completionData);
+          console.log(`✅ Chore "${currentChoreId}" completed with 100%! Saved. (${completionData.completedChores.length}/${questions.length} in cycle)`);
+        }
+      }
+    }
+  }, [isChoreComplete]);
 
   // Handle student answers for chore steps
   const handleChoreStepAnswer = (isCorrect, selectedChoice) => {
@@ -4037,12 +4310,22 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
           difficultyId: difficultyId
         });
         
+        // Build chore-specific label for Household Chores Helper
+        let activityNameOverride = null;
+        if (isChoreGame && currentChoreId) {
+          const choreName = questions.find(q => q.choreId === currentChoreId)?.choreName;
+          if (choreName) {
+            activityNameOverride = `${activity} - ${choreName}`;
+          }
+        }
+
         const result = await handleActivityCompletion(
           user.id, // studentId (using current user's ID)
           activityId, // activityId 
           scorePercentage, // score (as percentage)
           'completed', // completion status
-          difficultyId // difficulty UUID
+          difficultyId, // difficulty UUID
+          activityNameOverride // chore-specific label (or null)
         );
         
         console.log('✅ Activity completion result:', result);
@@ -4088,25 +4371,29 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     if (category === 'Academic' && user?.id && activity) {
       try {
         const { recordStudentScore } = await import('../lib/studentScoresApi');
-        
         // Calculate total questions based on activity type
         let totalQs = total;
+        let activityLabel = activity;
         if (isHygieneGame || isStreetGame) {
           totalQs = 5;
         } else if (isMemoryGame || activity === "Visual Memory Challenge") {
           totalQs = 3; // Memory game has 3 rounds
+        } else if (isChoreGame) {
+          totalQs = questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3; // 1 chore = 3 steps
+          const choreName = questions.find(q => q.choreId === currentChoreId)?.choreName;
+          if (choreName) {
+            activityLabel = `${activity} - ${choreName}`;
+          }
         }
-        
         await recordStudentScore(
           user.id,
-          activity,
+          activityLabel,
           category,
           difficulty,
           score,
           totalQs
         );
-        
-        console.log('✅ Score recorded for unlock logic');
+        console.log('✅ Score recorded for unlock logic:', activityLabel);
       } catch (err) {
         console.error('Failed to record score for unlock:', err);
       }
@@ -4280,6 +4567,9 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     } else {
       // No badges, proceed to complete
 
+      // Determine the correct total for this activity type
+      const choreTotal = isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total;
+
       // For memory game, pass detailed score
       if (isMemoryGame || activity === "Visual Memory Challenge") {
         const accuracyPercentage = memoryAttempts > 0 ? Math.round((memoryCorrectAnswers / memoryAttempts) * 100) : 0;
@@ -4291,12 +4581,12 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
           finalScore: memoryCorrectAnswers,
           maxPossibleScore: 3
         };
-        onComplete(score, total, detailedScore);
+        onComplete(score, choreTotal, detailedScore);
       } else {
-        onComplete(score, total);
+        onComplete(score, choreTotal);
       }
 
-      handleActivityComplete(score, total);
+      handleActivityComplete(score, choreTotal);
 
     }
   };
@@ -6116,14 +6406,14 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                       <div className="w-12 md:w-16 h-1 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full mx-auto"></div>
                     </div>
 
-                    {/* Interactive Answer Choices - 3 in 1 row */}
+                    {/* Interactive Answer Choices - 3 in 1 row (randomized) */}
                     <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 relative z-10 max-w-4xl mx-auto">
-                      {currentStep.choices.map((choice, index) => (
+                      {(shuffledChoreChoices.length > 0 ? shuffledChoreChoices : currentStep.choices).map((choice, index) => (
                         <button
                           key={index}
-                          disabled={showChoreFeedback}
+                          disabled={showChoreFeedback || isChoreComplete}
                           onClick={() => {
-                            if (showChoreFeedback) return;
+                            if (showChoreFeedback || isChoreComplete) return;
                             
                             const isCorrect = choice === currentStep.correctChoice;
                             
@@ -6166,30 +6456,30 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                             }
                           }}
                           className={`flex-1 group transition-all duration-300 transform focus:outline-none focus:ring-4 focus:ring-blue-300 relative overflow-hidden rounded-xl p-4 sm:p-6 text-center ${
-                            showChoreFeedback 
+                            showChoreFeedback || isChoreComplete
                               ? 'cursor-not-allowed opacity-60' 
                               : 'hover:scale-105 hover:shadow-lg cursor-pointer bg-gradient-to-r from-gray-50 to-blue-50 hover:from-blue-100 hover:to-purple-100 border-2 border-gray-200 hover:border-blue-400'
                           }`}
                           aria-label={`Choice ${String.fromCharCode(65 + index)}: ${choice}`}
                         >
-                          {!showChoreFeedback && (
+                          {!(showChoreFeedback || isChoreComplete) && (
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                           )}
                           
                           <div className="relative z-10">
                             <div className={`text-lg sm:text-xl font-bold mb-2 transition-colors duration-300 ${
-                              showChoreFeedback && choice === currentStep.correctChoice
+                              (showChoreFeedback || isChoreComplete) && choice === currentStep.correctChoice
                                 ? 'text-green-800'
-                                : showChoreFeedback
+                                : (showChoreFeedback || isChoreComplete)
                                 ? 'text-gray-500'
                                 : 'text-gray-800'
                             }`}>
                               {String.fromCharCode(65 + index)}
                             </div>
                             <div className={`font-semibold text-sm sm:text-base leading-relaxed transition-colors duration-300 ${
-                              showChoreFeedback && choice === currentStep.correctChoice
+                              (showChoreFeedback || isChoreComplete) && choice === currentStep.correctChoice
                                 ? 'text-green-800'
-                                : showChoreFeedback
+                                : (showChoreFeedback || isChoreComplete)
                                 ? 'text-gray-500'
                                 : 'text-gray-800'
                             }`}>
@@ -6232,104 +6522,20 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                 </div>
               )}
 
-              {/* Interactive Navigation */}
+              {/* Interactive Navigation - Single chore per session */}
               <div className="flex flex-col sm:flex-row justify-center items-center space-y-3 sm:space-y-0 sm:space-x-4 px-4">
-                {isChoreComplete && currentQuestionIndex > 0 && (
-                  <button
-                    onClick={() => {
-                      // Go back to previous chore
-                      const prevIndex = currentQuestionIndex - 1;
-                      setCurrentQuestionIndex(prevIndex);
-                      
-                      // Reset chore state
-                      setCurrentChoreStep(0);
-                      setChoreProgress([]);
-                      setCompletedChoreSteps([]);
-                      setCompletedSteps([]);
-                      setChoreToolsAvailable([]);
-                      setChoreEnvironmentItems([]);
-                      setDraggedChoreItems([]);
-                      setDroppedChoreItems([]);
-                      setDraggedItem(null);
-                      setChoreScore(0);
-                      setIsChoreComplete(false);
-                      setShowChoreFeedback(false);
-                      setChoreFeedbackType('');
-                      setChoreFeedbackMessage('');
-                      
-                      // Set the previous chore ID
-                      const prevChore = questions[prevIndex];
-                      if (prevChore && prevChore.choreId) {
-                        setCurrentChoreId(prevChore.choreId);
-                      }
-                    }}
-                    className="w-full sm:w-auto bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2"
-                    aria-label="Go back to previous chore"
-                  >
-                    <span className="text-xl md:text-2xl">⬅️</span>
-                    <span className="text-center">Back</span>
-                  </button>
-                )}
-                
                 {isChoreComplete && (
-                  <button
-                    onClick={() => {
-                      if (currentQuestionIndex < questions.length - 1) {
-                        // Move to next chore
-                        const nextIndex = currentQuestionIndex + 1;
-                        setCurrentQuestionIndex(nextIndex);
-                        
-                        // Reset chore state
-                        setCurrentChoreStep(0);
-                        setChoreProgress([]);
-                        setCompletedChoreSteps([]);
-                        setCompletedSteps([]);
-                        setChoreToolsAvailable([]);
-                        setChoreEnvironmentItems([]);
-                        setDraggedChoreItems([]);
-                        setDroppedChoreItems([]);
-                        setDraggedItem(null);
-                        setChoreScore(0);
-                        setIsChoreComplete(false);
-                        setShowChoreFeedback(false);
-                        setChoreFeedbackType('');
-                        setChoreFeedbackMessage('');
-                        
-                        // Set the next chore ID
-                        const nextChore = questions[nextIndex];
-                        if (nextChore && nextChore.choreId) {
-                          setCurrentChoreId(nextChore.choreId);
-                        }
-                      } else {
-                        setShowModal(true);
-                      }
-                    }}
-                    className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2"
-                    aria-label={currentQuestionIndex < questions.length - 1 ? "Continue to next chore challenge" : "Complete the mission"}
-                  >
-                    <span className="text-xl md:text-2xl">
-                      {currentQuestionIndex < questions.length - 1 ? "🎯" : "🏆"}
-                    </span>
-                    <span className="text-center">
-                      {currentQuestionIndex < questions.length - 1 ? "Next Chore Challenge" : "Complete Mission"}
-                    </span>
-                  </button>
-                )}
-                
-                {/* {isChoreComplete && (
                   <button
                     onClick={() => {
                       setShowModal(true);
                     }}
-                    className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2"
-                    aria-label="Back to Flashcards"
+                    className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2"
+                    aria-label="Complete the mission"
                   >
-                    <span className="text-xl md:text-2xl">🏠</span>
-                    <span className="text-center">Back to Flashcards</span>
+                    <span className="text-xl md:text-2xl">🏆</span>
+                    <span className="text-center">Complete Mission</span>
                   </button>
-                )} */}
-                
-               
+                )}
               </div>
 
               {/* Enhanced Success Celebration */}
@@ -6841,7 +7047,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                 </h2>
                 <div className="bg-blue/70 backdrop-blur-sm rounded-xl p-4 border border-purple-100">
                   <p className="text-2xl font-bold text-gray-800 mb-2">
-                    You scored <span className="text-3xl text-purple-600">{score}</span> out of <span className="text-3xl text-pink-600">{isHygieneGame || isStreetGame ? 5 : total}</span>!
+                    You scored <span className="text-3xl text-purple-600">{score}</span> out of <span className="text-3xl text-pink-600">{isHygieneGame || isStreetGame ? 5 : isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total}</span>!
                   </p>
                   {activity === "Cashier Game" && (
                     <p className="text-xl font-bold text-green-600 mb-2">
@@ -6869,6 +7075,9 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                         (streetScore === 5 ? "Perfect Safety Champion!" : 
                          streetScore >= 4 ? "Excellent Street Safety!" : 
                          streetScore >= 3 ? "Great Job Staying Safe!" : "Keep Learning Safety!") :
+                       isChoreGame ?
+                        (score === (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) ? "Perfect Chore Master!" :
+                         score >= 2 ? "Great Chore Helper!" : "Keep Practicing!") :
                         (score === total ? "Perfect Score!" : 
                          score >= total * 0.8 ? "Excellent!" : 
                          score >= total * 0.6 ? "Great Job!" : "Keep Learning!")
@@ -6997,6 +7206,9 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                   onClick={() => {
                     setShowBadgeModal(false);
 
+                    // Determine the correct total for this activity type
+                    const badgeChoreTotal = isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total;
+
                     // For memory game, pass detailed score
                     if (isMemoryGame || activity === "Visual Memory Challenge") {
                       const accuracyPercentage = memoryAttempts > 0 ? Math.round((memoryCorrectAnswers / memoryAttempts) * 100) : 0;
@@ -7008,12 +7220,12 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                         finalScore: memoryCorrectAnswers,
                         maxPossibleScore: 3
                       };
-                      onComplete(score, total, detailedScore);
+                      onComplete(score, badgeChoreTotal, detailedScore);
                     } else {
-                      onComplete(score, total);
+                      onComplete(score, badgeChoreTotal);
                     }
 
-                    handleActivityComplete(score, total);
+                    handleActivityComplete(score, badgeChoreTotal);
 
                   }}
                 >

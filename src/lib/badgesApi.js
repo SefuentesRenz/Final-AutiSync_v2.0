@@ -414,6 +414,43 @@ export async function checkAndAwardBadges(studentId) {
         shouldAward = choreActivities.length >= criteria.count;
         console.log(`🏆 Chore check: count=${choreActivities.length}, required=${criteria.count}, award=${shouldAward}`);
       }
+      else if (criteria.activity === 'specific_chore' && criteria.chore && criteria.count) {
+        // Per-chore Completion Badges: awarded the first time a student finishes a specific chore
+        const choreKeywords = {
+          washing_dishes:  'washing dishes',
+          making_bed:      'making the bed',
+          wiping_table:    'wiping the table',
+          sweeping_floor:  'sweeping the floor',
+          watering_plants: 'watering the plants',
+        };
+        const keyword = choreKeywords[criteria.chore];
+        if (keyword) {
+          const matched = progress.filter(p =>
+            p.activity_name?.toLowerCase().includes(keyword)
+          );
+          shouldAward = matched.length >= criteria.count;
+          console.log(`🏆 Specific chore completion (${criteria.chore}) check: count=${matched.length}, required=${criteria.count}, award=${shouldAward}`);
+        }
+      }
+      else if (criteria.activity === 'specific_chore_mastery' && criteria.chore && criteria.count) {
+        // Per-chore Mastery Badges: awarded when student scores 100% (3/3) on a specific chore
+        const choreKeywords = {
+          washing_dishes:  'washing dishes',
+          making_bed:      'making the bed',
+          wiping_table:    'wiping the table',
+          sweeping_floor:  'sweeping the floor',
+          watering_plants: 'watering the plants',
+        };
+        const keyword = choreKeywords[criteria.chore];
+        if (keyword) {
+          const matched = progress.filter(p =>
+            p.activity_name?.toLowerCase().includes(keyword) &&
+            p.score >= 100
+          );
+          shouldAward = matched.length >= criteria.count;
+          console.log(`🏆 Specific chore mastery (${criteria.chore}) check: count=${matched.length}, required=${criteria.count}, award=${shouldAward}`);
+        }
+      }
       else if (criteria.activity === 'street' && criteria.count) {
         // Street crossing badges: Safety Learner, Street Smart, Safety Champion
         const streetActivities = progress.filter(p => 
