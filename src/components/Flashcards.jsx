@@ -8,6 +8,9 @@ import {
 } from '../utils/badgeSystem';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import SafeStreetCrossingGame from './SafeStreetCrossingGame';
+import CashierGame from './CashierGame';
+import MoneyValueGame from './MoneyValueGame';
 
 // Optimized Video Component
 const OptimizedVideo = memo(({ src, className, autoPlay, loop, muted, controls, style }) => {
@@ -4374,7 +4377,13 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
         // Calculate total questions based on activity type
         let totalQs = total;
         let activityLabel = activity;
-        if (isHygieneGame || isStreetGame) {
+        if (isStreetGame) {
+          totalQs = 100; // Street game score is 0-100 points
+        } else if (activity === 'Cashier Game') {
+          totalQs = 50; // Cashier game: 5 rounds × 10 pts = 50 max
+        } else if (isMoneyGame) {
+          totalQs = 50; // Money Value Game: 5 rounds × 10 pts = 50 max
+        } else if (isHygieneGame) {
           totalQs = 5;
         } else if (isMemoryGame || activity === "Visual Memory Challenge") {
           totalQs = 3; // Memory game has 3 rounds
@@ -4400,7 +4409,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     }
     
     // Calculate earned badges with enhanced statistics
-    let badges = calculateSessionBadges(score, total);
+    let badges = calculateSessionBadges(score, isStreetGame ? 100 : (activity === 'Cashier Game' ? 50 : total));
     
     // Add special memory game badges
     if (activity === "Visual Memory Challenge" || isMemoryGame) {
@@ -4443,29 +4452,58 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     
     // Add special cashier game badges
     if (activity === "Cashier Game") {
-      if (cashierScore >= 80) {
+      if (cashierScore >= 45) {
         badges.push({
           name: "Master Cashier",
-          description: "Earned 80+ points as a cashier!",
+          description: "Earned 45+ out of 50 points as a cashier!",
           icon: "🏆",
           rarity: "gold",
           category: "Social Skills"
         });
-      } else if (cashierScore >= 60) {
+      } else if (cashierScore >= 35) {
         badges.push({
           name: "Senior Cashier",
-          description: "Earned 60+ points as a cashier!",
+          description: "Earned 35+ out of 50 points as a cashier!",
           icon: "🥈",
           rarity: "silver",
           category: "Social Skills"
         });
-      } else if (cashierScore >= 40) {
+      } else if (cashierScore >= 20) {
         badges.push({
           name: "Junior Cashier",
-          description: "Earned 40+ points as a cashier!",
+          description: "Earned 20+ out of 50 points as a cashier!",
           icon: "🥉",
           rarity: "bronze",
           category: "Social Skills"
+        });
+      }
+    }
+
+    // Add special Money Value Game badges
+    if (isMoneyGame) {
+      if (moneyScore >= 45) {
+        badges.push({
+          name: "Money Master",
+          description: "Earned 45+ out of 50 points in the Money Value Game!",
+          icon: "💰",
+          rarity: "gold",
+          category: "Daily Life Skills"
+        });
+      } else if (moneyScore >= 35) {
+        badges.push({
+          name: "Smart Shopper",
+          description: "Earned 35+ out of 50 points in the Money Value Game!",
+          icon: "🛒",
+          rarity: "silver",
+          category: "Daily Life Skills"
+        });
+      } else if (moneyScore >= 20) {
+        badges.push({
+          name: "Budget Beginner",
+          description: "Earned 20+ out of 50 points in the Money Value Game!",
+          icon: "🪙",
+          rarity: "bronze",
+          category: "Daily Life Skills"
         });
       }
     }
@@ -4568,7 +4606,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       // No badges, proceed to complete
 
       // Determine the correct total for this activity type
-      const choreTotal = isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total;
+      const choreTotal = isStreetGame ? 100 : (activity === 'Cashier Game' ? 50 : isMoneyGame ? 50 : isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total);
 
       // For memory game, pass detailed score
       if (isMemoryGame || activity === "Visual Memory Challenge") {
@@ -4624,7 +4662,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
 
         <div className="relative z-10 ">
           {/* Question Counter with modern design */}
-          <div className="-mt-20 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl px-6 py-1 border border-blue-200/30 inline-block">
+          {!isStreetGame && <div className="-mt-20 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl px-6 py-1 border border-blue-200/30 inline-block">
                 <div className="text-base font-bold text-gray-700 flex items-center justify-center space-x-2">
               <span className="text-2xl animate-bounce-gentle">
                 {isHygieneGame ? "🧼" : isChoreGame ? "🏠" : isStreetGame ? "🚦" : isMoneyGame ? "💰" : isGreetingsGame ? "👋" : "🌟"}
@@ -4633,14 +4671,14 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                 {isHygieneGame ? `Round ${currentRound} of 5`
                  : isStreetGame ? `Question ${streetRound} of 5`
                  : isGreetingsGame ? `Question ${greetingsRound} of 5`
-                 : isMoneyGame ? `Question ${moneyRound} of 3`
+                 : isMoneyGame ? `Money Value Game 💰`
                  : isChoreGame && currentChoreId ? `Learning: ${questions.find(q => q.choreId === currentChoreId)?.choreName || 'Chore'}`
                  : `Question ${currentQuestionIndex + 1} of ${total}`
                 }
               </span>
               <span className="text-2xl animate-pulse-gentle">✨</span>
             </div>
-          </div>
+          </div>}
 
           {/* Question with improved typography */}
           {!isCashierGame && !isHygieneGame && !isStreetGame && !isGreetingsGame && !isMoneyGame && !isMatchingGame && !isPuzzleGame && !isChoreGame && !isMemoryGame && (
@@ -4652,7 +4690,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
           )}
 
           {/* Image/Video with modern container */}
-          <div className="flex justify-center flex-wrap gap-4 mb-4">
+          {!isStreetGame && <div className="flex justify-center flex-wrap gap-4 mb-4">
             {questions[currentQuestionIndex].imageSrc && (
               <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-4 border-2 border-blue-200/30 shadow-lg">
                 <img
@@ -4676,7 +4714,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                 />
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Answer Choices with autism-friendly design */}
           {!isCashierGame && !isHygieneGame && !isStreetGame && !isGreetingsGame && !isMoneyGame && !isMatchingGame && !isPuzzleGame && !isChoreGame && !isMemoryGame ? (
@@ -4868,7 +4906,24 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
               </div>
             </div>
           ) : isStreetGame ? (
-            /* 🚦 ENHANCED INTERACTIVE SAFE STREET CROSSING GAME 🚦 */
+            /* 🚦 FROGGER-STYLE SAFE STREET CROSSING GAME 🚦 */
+            <SafeStreetCrossingGame
+              onGameComplete={(finalScore, totalRounds, finalLevel) => {
+                // finalScore is the actual points (0-100), use it directly
+                // Set score = finalScore, streetScore = finalLevel for badge logic
+                setScore(finalScore);
+                setStreetScore(Math.min(finalLevel, 5));
+                setShowModal(true);
+              }}
+              onBack={() => {
+                // Navigate back if needed
+                if (typeof onComplete === 'function') {
+                  onComplete(0, 5);
+                }
+              }}
+            />
+          ) : false ? (
+            /* OLD STREET GAME CODE (disabled) */
             <div className="space-y-6">
               {/* Game Status Debug Info (remove in production) */}
               {/* <div className="text-xs text-gray-500 text-center">
@@ -5203,353 +5258,21 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
               </div>
             </div>
           ) : isCashierGame ? (
-            <div className="space-y-3">
-              {/* Main Game Area */}
-              <div className="bg-gradient-to-b from-blue-50 to-green-50 rounded-2xl p-2 -mt-2 border-2 border-blue-200 relative">
-                {/* Correct Answer Overlay */}
-                {showCorrect && (
-                  <div className="absolute inset-0 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
-                    <audio ref={correctAudioRef} src={correctSound} />
-                    <img src={currentCorrectImage} alt="Correct" className="w-40 h-40 object-contain" />
-                  </div>
-                )}
-
-                {/* Wrong Answer Overlay */}
-                {showWrong && (
-                  <div className="absolute inset-0 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
-                    <audio ref={wrongAudioRef} src={wrongSound} />
-                    <img src="/assets/NiceTry.png" alt="Nice Try" className="w-40 h-40 object-contain" />
-                  </div>
-                )}
-                
-                {/* Characters with simplified design */}
-                <div className="flex justify-between items-center relative max-h-[260px]">
-                  
-                  {/* Customer Character */}
-                  <div className="flex mt-14 flex-col items-center relative">
-                    {/* Thought Bubble for Customer - Always show when there's speech text */}
-                    {speechText && (
-                      <div className="absolute -top-15 left-1/2 transform -translate-x-1/2 bg-white rounded-2xl p-2 border-2 border-pink-300 shadow-lg w-[200px] z-10 animate-bounce-gentle">
-                        <div className="text-lg font-bold text-gray-800 text-center leading-tight">
-                          {speechText}
-                        </div>
-                        {/* Bubble pointer */}
-                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                          <div className="w-0 h-0 border-l-4 border-r-4 border-t-8 border-l-transparent border-r-transparent border-t-white"></div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Customer - Head larger */}
-                    <div className="text-center">
-                      <div className="text-[10rem] relative bottom-10 -mb-6">👩‍🦱</div>
-                      <div className="relative bottom-10 bg-pink-500 text-white px-3 py-2 rounded-full text-base font-bold shadow-md">
-                        Customer
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Restaurant Counter */}
-                  <div className="flex-1 mx-4 ">
-                    <div className="h-20 bg-gradient-to-t from-amber-400 to-amber-200 rounded-xl border-2 border-amber-500 relative flex items-center justify-center shadow-md">
-                      <span className="text-base font-bold text-amber-900">🏪 Restaurant Counter 🏪</span>
-                    </div>
-                  </div>
-
-                  {/* Cashier Character (You) */}
-                  <div className="flex flex-col mt-14 items-center relative">
-                    {/* Thought Bubble for Cashier */}
-                    {showThoughtBubble && currentSpeaker === 'cashier' && (
-                      <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-white rounded-2xl p-3 border-2 border-blue-300 shadow-lg max-w-sm z-10 animate-bounce-gentle">
-                        <div className="text-md font-bold text-gray-800 text-center leading-tight">
-                          {speechText}
-                        </div>
-                        {/* Bubble pointer */}
-                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                          <div className="w-0 h-0 border-l-4 border-r-4 border-t-8 border-l-transparent border-r-transparent border-t-white"></div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Cashier - Head larger */}
-                    <div className="text-center">
-                      <div className="text-[10rem] relative bottom-10 -mb-6">👨‍💼</div>
-                      <div className="relative bottom-10 bg-blue-500 text-white px-3 py-2 rounded-full text-base font-bold shadow-md">
-                        You (Cashier)
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Area */}
-              <div className="mt-3 space-y-3">
-                {/* Step 1: Customer speaks */}
-                {gameStep === 1 && (
-                  <div className="text-center">
-                    
-                    {showThoughtBubble && (
-                      <button
-                        onClick={handleStartSelecting}
-                        className="bg-green-500 hover:bg-green-600 text-white py-3 px-8 rounded-xl font-bold text-base transition-all duration-300 transform hover:scale-105 cursor-pointer shadow-md"
-                      >
-                        ✅ GET ORDER
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Step 2: Select items */}
-                {gameStep === 2 && (
-                  <div>
-                    <div className="bg-blue-100 border-2 border-blue-300 rounded-xl p-3 mb-3 text-center">
-                      <h3 className="text-base font-bold text-gray-800">
-                        🍽️ Find the food the customer wants
-                      </h3>
-                    </div>
-
-                    {/* Food Menu - Simple Grid */}
-                    <div className="grid grid-cols-4 gap-3 mb-3">
-                      {currentQuestion.menuOptions.slice(0, 4).map((item, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleItemSelect(item)}
-                          disabled={isAnswered}
-                          className="bg-white hover:bg-blue-50 border-2 border-gray-300 hover:border-blue-400 rounded-xl p-4 transition-all duration-300 transform hover:scale-105 cursor-pointer shadow-md"
-                        >
-                          <div className="text-5xl mb-2">{item.image}</div>
-                          <div className="font-bold text-gray-800 text-base">{item.name}</div>
-                          <div className="text-green-600 font-semibold text-sm">{item.price}</div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Selected Items Display with Submit Button */}
-                    {selectedItems.length > 0 && (
-                      <div className="flex gap-3 items-start mb-3">
-                        {/* Left side - Selected items */}
-                        <div className="flex-1 bg-green-100 border-2 border-green-300 rounded-xl p-3">
-                          <h3 className="text-sm font-bold text-gray-800 mb-2 text-center">
-                            ✅ Food I picked:
-                          </h3>
-                          <div className="flex flex-wrap gap-2 justify-center">
-                            {selectedItems.map((item, index) => (
-                              <div key={index} className="bg-white border-2 border-green-400 rounded-lg p-2 flex items-center space-x-2 shadow-sm">
-                                <span className="text-2xl">{item.image}</span>
-                                <span className="font-semibold text-sm">{item.name}</span>
-                                <button
-                                  onClick={() => handleRemoveItem(index)}
-                                  disabled={isAnswered}
-                                  className="bg-red-100 hover:bg-red-200 text-red-600 px-2 py-1 rounded-md text-sm cursor-pointer font-bold"
-                                >
-                                  ❌
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Right side - Submit Button */}
-                        {!isAnswered && (
-                          <div className="flex items-center">
-                            <button
-                              onClick={handleCashierSubmit}
-                              className="bg-purple-500 relative top-7  hover:bg-purple-600 text-white py-4 px-6 rounded-xl font-bold text-base transition-all duration-300 transform hover:scale-105 cursor-pointer shadow-md whitespace-nowrap"
-                            >
-                              🎯 Give food to customer
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Step 3: Complete */}
-                {gameStep === 3 && (
-                  <div className="text-center">
-                    <div className="bg-purple-100 border-2 border-purple-300 rounded-xl p-4">
-                      <h3 className="text-lg font-bold text-gray-800 mb-2">
-                        🏆 Good job helping the customer!
-                      </h3>
-                      <div className="text-base font-bold text-purple-600">
-                        You got {cashierScore} points! 🌟
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : isCashierGame ? (
-            <div className="space-y-6">
-              {/* Main Game Area */}
-              <div className="bg-gradient-to-b from-blue-50 to-green-50 rounded-3xl p-4 border-4 border-blue-200 relative">
-                
-                {/* Characters with simplified design */}
-                <div className="flex justify-between items-center relative min-h-[300px]">
-                  
-                  {/* Customer Character */}
-                  <div className="flex flex-col items-center relative">
-                    {/* Thought Bubble for Customer */}
-                    {showThoughtBubble && currentSpeaker === 'customer' && (
-                      <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-white rounded-3xl p-3 border-4 border-pink-300 shadow-2xl w-[250px] z-10 animate-bounce-gentle">
-                        <div className="text-xl font-bold text-gray-800 text-center leading-relaxed">
-                          {speechText}
-                        </div>
-                        {/* Bubble pointer */}
-                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                          <div className="w-0 h-0 border-l-8 border-r-8 border-t-16 border-l-transparent border-r-transparent border-t-white"></div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Customer - Head only */}
-                    <div className="text-center">
-                      {/* Head - larger */}
-                      <div className="text-[12rem] mb-4">👩‍🦱</div>
-                      
-                      {/* Label */}
-                      <div className="bg-pink-500 text-white px-8 py-4 rounded-full text-2xl font-bold shadow-lg">
-                        Customer
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Restaurant Counter */}
-                  <div className="flex-1 mx-16 mt-20">
-                    <div className="h-32 bg-gradient-to-t from-amber-400 to-amber-200 rounded-2xl border-4 border-amber-500 relative flex items-center justify-center shadow-lg">
-                      <span className="text-2xl font-bold text-amber-900">🏪 Restaurant Counter 🏪</span>
-                    </div>
-                  </div>
-
-                  {/* Cashier Character (You) */}
-                  <div className="flex flex-col items-center relative">
-                    {/* Thought Bubble for Cashier */}
-                    {showThoughtBubble && currentSpeaker === 'cashier' && (
-                      <div className="absolute -top-32 left-1/2 transform -translate-x-1/2 bg-white rounded-3xl p-8 border-4 border-blue-300 shadow-2xl max-w-lg z-10 animate-bounce-gentle">
-                        <div className="text-xl font-bold text-gray-800 text-center leading-relaxed">
-                          {speechText}
-                        </div>
-                        {/* Bubble pointer */}
-                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                          <div className="w-0 h-0 border-l-8 border-r-8 border-t-16 border-l-transparent border-r-transparent border-t-white"></div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Cashier - Head only */}
-                    <div className="text-center">
-                      {/* Head - larger */}
-                      <div className="text-[12rem] mb-4">👨‍💼</div>
-                      
-                      {/* Label */}
-                      <div className="bg-blue-500 text-white px-8 py-4 rounded-full text-2xl font-bold shadow-lg">
-                        You (Cashier)
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Area */}
-              <div className="mt-8 space-y-6">
-                {/* Step 1: Customer speaks */}
-                {gameStep === 1 && (
-                  <div className="text-center">
-                    
-                    {showThoughtBubble && (
-                      <button
-                        onClick={handleStartSelecting}
-                        className="bg-green-500 hover:bg-green-600 text-white py-6 px-12 rounded-2xl font-bold text-xl transition-all duration-300 transform hover:scale-105 cursor-pointer shadow-lg"
-                      >
-                        ✅ GET ORDER
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Step 2: Select items */}
-                {gameStep === 2 && (
-                  <div>
-                    <div className="bg-blue-100 border-4 border-blue-300 rounded-2xl p-6 mb-6 text-center">
-                      <h3 className="text-2xl font-bold text-gray-800 mb-3">
-                        🍽️ Find the food the customer wants
-                      </h3>
-                      {/* <p className="text-xl text-gray-700 leading-relaxed">
-                        Click on the food from the menu. Pick what the customer said!
-                      </p> */}
-                    </div>
-
-                    {/* Food Menu - Simple Grid */}
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                      {currentQuestion.menuOptions.map((item, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleItemSelect(item)}
-                          disabled={isAnswered}
-                          className="bg-white hover:bg-blue-50 border-4 border-gray-300 hover:border-blue-400 rounded-2xl p-6 transition-all duration-300 transform hover:scale-105 cursor-pointer shadow-lg"
-                        >
-                          <div className="text-5xl mb-3">{item.image}</div>
-                          <div className="font-bold text-gray-800 text-lg">{item.name}</div>
-                          <div className="text-green-600 font-semibold text-lg">{item.price}</div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Selected Items Display */}
-                    {selectedItems.length > 0 && (
-                      <div className="bg-green-100 border-4 border-green-300 rounded-2xl p-6 mb-6">
-                        <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">
-                          ✅ Food I picked:
-                        </h3>
-                        <div className="flex flex-wrap gap-3 justify-center">
-                          {selectedItems.map((item, index) => (
-                            <div key={index} className="bg-white border-3 border-green-400 rounded-xl p-4 flex items-center space-x-3 shadow-md">
-                              <span className="text-3xl">{item.image}</span>
-                              <span className="font-semibold text-lg">{item.name}</span>
-                              <button
-                                onClick={() => handleRemoveItem(index)}
-                                disabled={isAnswered}
-                                className="bg-red-100 hover:bg-red-200 text-red-600 px-3 py-2 rounded-lg text-lg cursor-pointer font-bold"
-                              >
-                                ❌
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Submit Button */}
-                    {selectedItems.length > 0 && !isAnswered && (
-                      <div className="text-center">
-                        <button
-                          onClick={handleCashierSubmit}
-                          className="bg-purple-500 hover:bg-purple-600 text-white py-6 px-12 rounded-2xl font-bold text-xl transition-all duration-300 transform hover:scale-105 cursor-pointer shadow-lg"
-                        >
-                          🎯 Give food to customer
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Step 3: Complete */}
-                {gameStep === 3 && (
-                  <div className="text-center">
-                    <div className="bg-purple-100 border-4 border-purple-300 rounded-2xl p-6">
-                      <h3 className="text-2xl font-bold text-gray-800 mb-3">
-                        🏆 Good job helping the customer!
-                      </h3>
-                      <div className="text-xl font-bold text-purple-600">
-                        You got {cashierScore} points! 🌟
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            </div>
+            /* 🏪 NEW CASHIER GAME WITH MONEY SYSTEM 🏪 */
+            <CashierGame
+              difficulty={difficulty}
+              onGameComplete={(finalScore, totalRounds, finalRound) => {
+                // finalScore is 0-50 (5 rounds × 10 pts max)
+                setCashierScore(finalScore);
+                setScore(finalScore);
+                setShowModal(true);
+              }}
+              onBack={() => {
+                if (typeof onComplete === 'function') {
+                  onComplete(0, 50);
+                }
+              }}
+            />
           ) : isGreetingsGame ? (
             <div className="space-y-4">
               {/* Main Game Area */}
@@ -5683,177 +5406,15 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
               </div>
             </div>
           ) : isMoneyGame ? (
-            <div className="space-y-6 -mt-5">
-              {/* Money Value Game Main Area */}
-              <div className="bg-gradient-to-b from-green-50 to-blue-50 rounded-3xl p-4 border-4 border-green-200 relative overflow-hidden">
-                {/* Correct Answer Overlay */}
-                {showCorrect && (
-                  <div className="absolute inset-0 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
-                    <audio ref={correctAudioRef} src={correctSound} />
-                    <img src={currentCorrectImage} alt="Correct" className="w-64 h-64 object-contain" />
-                  </div>
-                )}
-
-                {/* Wrong Answer Overlay */}
-                {showWrong && (
-                  <div className="absolute inset-0 backdrop-blur-sm flex flex-col justify-center items-center z-50 rounded-2xl">
-                    <audio ref={wrongAudioRef} src={wrongSound} />
-                    <img src="/assets/NiceTry.png" alt="Nice Try" className="w-64 h-64 object-contain" />
-                  </div>
-                )}
-                
-                
-
-                {/* Budget Display */}
-                <div className="bg-gradient-to-r from-blue-100 to-purple-100 border-4 border-blue-300 rounded-2xl p-3 mb-6 text-center relative">
-                  <div className="absolute -top-3 -left-3 text-5xl animate-pulse-gentle">💳</div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-1">Your Budget</h3>
-                  <div className="text-4xl font-extrabold text-green-600 bg-white/70 backdrop-blur-sm rounded-xl p-2 border-2 border-green-200">
-                    ₱{currentBudget.toLocaleString()}
-                  </div>
-                  <p className="text-md text-gray-600 mt-3">Choose items you can afford!</p>
-                </div>
-
-                {/* Shopping Items - 4 items in 1 horizontal row */}
-                <div className="grid grid-cols-4 gap-3 mb-3">
-                  {currentMoneyItems.map((item, index) => {
-                    const isPurchased = selectedPurchases.some(p => p.id === item.id);
-                    
-                    return (
-                      <div
-                        key={item.id}
-                        className={`
-                          relative bg-white/90 backdrop-blur-xl rounded-lg p-4 border-2 shadow transition-all duration-300
-                          border-blue-300 hover:border-blue-500
-                          ${isPurchased ? 'ring-2 ring-green-400 bg-green-50' : ''}
-                        `}
-                      >
-                        {/* Item Display */}
-                        <div className="text-center">
-                          <div className="mb-1" style={{ fontSize: '55px' }}>
-                            {item.isImagePath ? (
-                              <img src={item.image} alt={item.name} className="w-24 h-24 object-cover mx-auto rounded-lg" />
-                            ) : (
-                              item.image
-                            )}
-                          </div>
-                          <h4 className="font-bold text-gray-800 mb-1 leading-tight" style={{ fontSize: '23px' }}>{item.name}</h4>
-                          <div className="font-bold mb-2 p-1 rounded text-green-600 bg-blue-100" style={{ fontSize: '18px' }}>
-                            ₱{item.price.toLocaleString()}
-                          </div>
-                          
-                          {/* Purchase Button - all buttons look the same */}
-                          <button
-                            onClick={() => handlePurchaseItem(item)}
-                            disabled={isPurchased || isRoundComplete}
-                            className={`
-                              w-full py-1 px-2 rounded font-bold transition-all duration-300 shadow-sm
-                              ${isPurchased 
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white cursor-pointer'
-                              }
-                              ${isRoundComplete ? 'opacity-50 cursor-not-allowed' : ''}
-                            `}
-                            style={{ fontSize: '18px' }}
-                          >
-                            {isPurchased ? '✅ Bought!' : '🛒 Buy'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Feedback Section */}
-                {showMoneyFeedback && (
-                  <div className={`rounded-2xl p-6 text-center border-4 mb-6 ${
-                    moneyFeedbackType === 'correct' 
-                      ? 'bg-gradient-to-r from-green-100 to-blue-100 border-green-400'
-                      : 'bg-gradient-to-r from-orange-100 to-red-100 border-orange-400'
-                  }`}>
-                    <div className="text-6xl mb-4">
-                      {moneyFeedbackType === 'correct' ? '🎉' : '💭'}
-                    </div>
-                    <div className="text-2xl font-bold text-gray-800 mb-3">
-                      {moneyFeedbackMessage}
-                    </div>
-                  </div>
-                )}
-
-                {/* Progress and Controls */}
-                <div className="bg-purple-100 border-4 border-purple-300 rounded-2xl p-2 mb-4">
-                  <div className="text-xl font-bold text-purple-800">
-                    Correct Purchases: {moneyScore} 🏆
-                  </div>
-                  {selectedPurchases.length > 0 && (
-                    <div className="text-md text-gray-700 ">
-                      Total Spent: ₱{totalSpent.toLocaleString()}
-                    </div>
-                  )}
-                </div>
-
-                {(() => {
-                  const affordableItems = currentMoneyItems.filter(item => item.price <= currentBudget);
-                  const allAffordablePurchased = affordableItems.length > 0 && 
-                    affordableItems.every(item => selectedPurchases.some(p => p.id === item.id));
-                  
-                  return (
-                    <button
-                      onClick={proceedToNextMoneyRound}
-                      disabled={!allAffordablePurchased || isRoundComplete}
-                      className={`py-4 px-8 rounded-2xl text-xl font-bold shadow-lg transition-all duration-300 w-full
-                        ${allAffordablePurchased && !isRoundComplete
-                          ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white transform hover:scale-105 cursor-pointer' 
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
-                        }`}
-                    >
-                      {moneyRound < 3 ? '➡️ Next Round' : '🏆 Complete Game'}
-                    </button>
-                  );
-                })()}
-
-                {/* Badge Completion Modal */}
-                {showBadgeCompletion && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/90 via-green-400/90 to-blue-400/90 backdrop-blur-md rounded-3xl flex items-center justify-center z-50">
-                    <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-12 text-center shadow-2xl border-4 border-yellow-300 relative animate-modal-appear">
-                      <div className="absolute -top-8 -right-8 text-8xl animate-spin-slow">🏆</div>
-                      <div className="absolute -bottom-4 -left-4 text-6xl animate-bounce-gentle">💰</div>
-                      
-                      <div className="text-8xl mb-6 animate-bounce-gentle">🎉</div>
-                      <h3 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-green-600 mb-4">
-                        Money Master Achievement!
-                      </h3>
-                      <div className="bg-gradient-to-r from-yellow-50 to-green-50 rounded-2xl p-6 mb-6 border-2 border-yellow-200">
-                        <p className="text-2xl font-bold text-gray-800 mb-3">
-                          🏆 Badge Earned: Money Master 💰
-                        </p>
-                        <p className="text-lg text-gray-700 mb-2">
-                          You completed all 3 rounds and learned about Philippine Peso values!
-                        </p>
-                        <p className="text-xl font-bold text-green-600">
-                          Final Score: {moneyScore} correct purchases! 🌟
-                        </p>
-                      </div>
-                      
-                      <div className="flex gap-4 justify-center">
-                        <button
-                          onClick={restartMoneyGame}
-                          className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white py-3 px-6 rounded-2xl text-lg font-bold shadow-lg transform hover:scale-105 transition-all duration-300 cursor-pointer"
-                        >
-                          🔄 Play Again
-                        </button>
-                        <button
-                          onClick={() => handleActivityComplete(moneyScore, 3)}
-                          className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white py-3 px-6 rounded-2xl text-lg font-bold shadow-lg transform hover:scale-105 transition-all duration-300 cursor-pointer"
-                        >
-                          🚀 Continue Adventure
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <MoneyValueGame
+              difficulty={difficulty}
+              onGameComplete={(finalScore, totalRounds) => {
+                setMoneyScore(finalScore);
+                setScore(finalScore);
+                setShowModal(true);
+              }}
+              onBack={() => navigate(-1)}
+            />
           ) : isMemoryGame ? (
             /* Visual Memory Challenge Game UI */
             <div className="space-y-6">
@@ -6556,7 +6117,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       </div>
 
       {/* Enhanced Next Button */}
-      {isAnswered && (
+      {isAnswered && !isStreetGame && (
         <div className="absolute right-7 bottom-90 animate-slide-in-right">
           <button
             {...getButtonSoundHandlers(handleNextClick)}
@@ -7047,11 +6608,11 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                 </h2>
                 <div className="bg-blue/70 backdrop-blur-sm rounded-xl p-4 border border-purple-100">
                   <p className="text-2xl font-bold text-gray-800 mb-2">
-                    You scored <span className="text-3xl text-purple-600">{score}</span> out of <span className="text-3xl text-pink-600">{isHygieneGame || isStreetGame ? 5 : isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total}</span>!
+                    You scored <span className="text-3xl text-purple-600">{score}</span> out of <span className="text-3xl text-pink-600">{isStreetGame ? 100 : (activity === 'Cashier Game' ? 50 : isMoneyGame ? 50 : isHygieneGame ? 5 : isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total)}</span>!
                   </p>
                   {activity === "Cashier Game" && (
                     <p className="text-xl font-bold text-green-600 mb-2">
-                      Cashier Points: <span className="text-2xl">{cashierScore}</span> 🏪
+                      🏪 Food + Change Score: <span className="text-2xl">{cashierScore}</span>/50
                     </p>
                   )}
                   {/* {activity === "Hygiene Hero" && (
@@ -7075,6 +6636,10 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                         (streetScore === 5 ? "Perfect Safety Champion!" : 
                          streetScore >= 4 ? "Excellent Street Safety!" : 
                          streetScore >= 3 ? "Great Job Staying Safe!" : "Keep Learning Safety!") :
+                       activity === "Cashier Game" ?
+                        (cashierScore >= 45 ? "Master Cashier! Amazing!" :
+                         cashierScore >= 35 ? "Excellent Cashier Skills!" :
+                         cashierScore >= 20 ? "Great Job! Keep Improving!" : "Keep Practicing!") :
                        isChoreGame ?
                         (score === (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) ? "Perfect Chore Master!" :
                          score >= 2 ? "Great Chore Helper!" : "Keep Practicing!") :
@@ -7207,7 +6772,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                     setShowBadgeModal(false);
 
                     // Determine the correct total for this activity type
-                    const badgeChoreTotal = isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total;
+                    const badgeChoreTotal = isStreetGame ? 100 : (activity === 'Cashier Game' ? 50 : isMoneyGame ? 50 : isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total);
 
                     // For memory game, pass detailed score
                     if (isMemoryGame || activity === "Visual Memory Challenge") {
