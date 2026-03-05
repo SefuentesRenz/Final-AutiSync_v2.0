@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getAllBadges, getStudentBadges } from '../lib/badgesApi';
+import { resolveBadgeIcon, BadgeIcon } from '../lib/badgeIcons';
 import { supabase } from '../lib/supabase';
 import { updateStreakOnLogin } from '../lib/streaksApi';
 
@@ -135,67 +136,75 @@ const StudentPage = () => {
         const mappedBadges = allBadges.map(badge => {
           const isEarned = earnedBadgeIds.includes(badge.id);
           
-          // Map badge properties to UI format
-          const iconMap = {
-            'First Step': '⭐',
-            'Perfect Scorer': '💯',
-            'Academic Star': '📖',
-            'Color Master': '🎨',
-            'Match Finder': '🧩',
-            'Number Ninja': '🔢',
-            'Consistency Champ': '📅',
-            'High Achiever': '🏆',
-            'Daily Life Hero': '🏠',
-            'All-Rounder': '🌟'
-          };
+          // Resolve icon: emoji from DB, title-based fallback, or default 🏆
+          const icon = resolveBadgeIcon(badge);
 
-          const colorMap = {
-            'First Step': 'from-yellow-400 to-yellow-600',
-            'Perfect Scorer': 'from-green-400 to-green-600',
-            'Academic Star': 'from-blue-400 to-blue-600',
-            'Color Master': 'from-purple-400 to-purple-600',
-            'Match Finder': 'from-pink-400 to-pink-600',
-            'Number Ninja': 'from-green-400 to-green-600',
-            'Consistency Champ': 'from-orange-400 to-orange-600',
-            'High Achiever': 'from-red-400 to-red-600',
-            'Daily Life Hero': 'from-teal-400 to-teal-600',
-            'All-Rounder': 'from-gradient-to-r from-purple-400 to-pink-600'
-          };
+          // Determine color based on badge title
+          let color = 'from-blue-400 to-blue-600';
+          let bgColor = 'bg-blue-50';
+          let animation = 'animate-pulse-gentle';
 
-          const bgColorMap = {
-            'First Step': 'bg-yellow-50',
-            'Perfect Scorer': 'bg-green-50',
-            'Academic Star': 'bg-blue-50',
-            'Color Master': 'bg-purple-50',
-            'Match Finder': 'bg-pink-50',
-            'Number Ninja': 'bg-green-50',
-            'Consistency Champ': 'bg-orange-50',
-            'High Achiever': 'bg-red-50',
-            'Daily Life Hero': 'bg-teal-50',
-            'All-Rounder': 'bg-purple-50'
-          };
-
-          const animationMap = {
-            'First Step': 'animate-bounce-gentle',
-            'Perfect Scorer': 'animate-pulse-gentle',
-            'Academic Star': 'animate-pulse-gentle',
-            'Color Master': 'animate-bounce-gentle',
-            'Match Finder': 'animate-wiggle',
-            'Number Ninja': 'animate-wiggle',
-            'Consistency Champ': 'animate-pulse-gentle',
-            'High Achiever': 'animate-bounce-gentle',
-            'Daily Life Hero': 'animate-float-delayed',
-            'All-Rounder': 'animate-float'
-          };
+          const title = badge.title || '';
+          if (title.includes('First Step')) {
+            color = 'from-yellow-400 to-yellow-600'; bgColor = 'bg-yellow-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Perfect Scorer')) {
+            color = 'from-green-400 to-green-600'; bgColor = 'bg-green-50'; animation = 'animate-pulse-gentle';
+          } else if (title.includes('Academic Star')) {
+            color = 'from-blue-400 to-blue-600'; bgColor = 'bg-blue-50'; animation = 'animate-pulse-gentle';
+          } else if (title.includes('Color')) {
+            color = 'from-purple-400 to-purple-600'; bgColor = 'bg-purple-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Match') || title.includes('Matcher')) {
+            color = 'from-pink-400 to-pink-600'; bgColor = 'bg-pink-50'; animation = 'animate-wiggle';
+          } else if (title.includes('Number')) {
+            color = 'from-green-400 to-green-600'; bgColor = 'bg-green-50'; animation = 'animate-wiggle';
+          } else if (title.includes('Consistency Champ')) {
+            color = 'from-orange-400 to-orange-600'; bgColor = 'bg-orange-50'; animation = 'animate-pulse-gentle';
+          } else if (title.includes('High Achiever')) {
+            color = 'from-red-400 to-red-600'; bgColor = 'bg-red-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Daily Life Hero')) {
+            color = 'from-teal-400 to-teal-600'; bgColor = 'bg-teal-50'; animation = 'animate-float-delayed';
+          } else if (title.includes('All-Rounder')) {
+            color = 'from-purple-400 to-pink-600'; bgColor = 'bg-purple-50'; animation = 'animate-float';
+          } else if (title.includes('Puzzle')) {
+            color = 'from-indigo-400 to-purple-600'; bgColor = 'bg-indigo-50'; animation = 'animate-pulse-gentle';
+          } else if (title.includes('Memory')) {
+            color = 'from-violet-400 to-purple-600'; bgColor = 'bg-violet-50'; animation = 'animate-pulse-gentle';
+          } else if (title.includes('Recognition') || title.includes('Skill Spotter')) {
+            color = 'from-cyan-400 to-blue-600'; bgColor = 'bg-cyan-50'; animation = 'animate-pulse-gentle';
+          } else if (title.includes('Cash Register Starter')) {
+            color = 'from-emerald-400 to-teal-600'; bgColor = 'bg-emerald-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Counter Helper')) {
+            color = 'from-green-400 to-emerald-600'; bgColor = 'bg-green-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Checkout Champion')) {
+            color = 'from-amber-400 to-orange-500'; bgColor = 'bg-amber-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Cash Handling Master')) {
+            color = 'from-yellow-400 to-amber-600'; bgColor = 'bg-yellow-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Trusted Cashier')) {
+            color = 'from-rose-400 to-pink-600'; bgColor = 'bg-rose-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Dishwashing') || title.includes('Floor Care') || title.includes('Table') || title.includes('Bed') || title.includes('Plant Care')) {
+            color = 'from-teal-400 to-emerald-600'; bgColor = 'bg-teal-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Hygiene') || title.includes('Clean')) {
+            color = 'from-sky-400 to-blue-600'; bgColor = 'bg-sky-50'; animation = 'animate-pulse-gentle';
+          } else if (title.includes('Safety') || title.includes('Street') || title.includes('Crossing')) {
+            color = 'from-orange-400 to-red-500'; bgColor = 'bg-orange-50'; animation = 'animate-pulse-gentle';
+          } else if (title.includes('Greeting') || title.includes('Social') || title.includes('Friendly')) {
+            color = 'from-pink-400 to-rose-600'; bgColor = 'bg-pink-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Chore') || title.includes('Helpful') || title.includes('Household')) {
+            color = 'from-teal-400 to-emerald-600'; bgColor = 'bg-teal-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Money') || title.includes('Value')) {
+            color = 'from-yellow-400 to-amber-600'; bgColor = 'bg-yellow-50'; animation = 'animate-bounce-gentle';
+          } else if (title.includes('Sweep')) {
+            color = 'from-lime-400 to-green-600'; bgColor = 'bg-lime-50'; animation = 'animate-bounce-gentle';
+          }
 
           return {
-            icon: iconMap[badge.title] || '🏆',
+            icon,
             title: badge.title,
             description: badge.description,
             status: isEarned ? 'EARNED' : 'LOCKED',
-            color: isEarned ? (colorMap[badge.title] || 'from-blue-400 to-blue-600') : 'from-gray-400 to-gray-500',
-            bgColor: isEarned ? (bgColorMap[badge.title] || 'bg-blue-50') : 'bg-gray-50',
-            animation: isEarned ? (animationMap[badge.title] || 'animate-pulse-gentle') : ''
+            color: isEarned ? color : 'from-gray-400 to-gray-500',
+            bgColor: isEarned ? bgColor : 'bg-gray-50',
+            animation: isEarned ? animation : ''
           };
         });
 
@@ -463,7 +472,7 @@ const StudentPage = () => {
                       )}
                       
                       <div className={`w-12 h-12 bg-gradient-to-r ${badge.color} rounded-xl mx-auto mb-3 flex items-center justify-center text-2xl text-white shadow-lg ${badge.animation}`}>
-                        {badge.icon}
+                        <BadgeIcon icon={badge.icon} alt={badge.title} />
                       </div>
                       
                       <h3 className="font-bold text-gray-800 text-sm mb-2">

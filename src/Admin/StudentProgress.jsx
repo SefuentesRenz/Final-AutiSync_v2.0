@@ -5,6 +5,7 @@ import { getStudentProgressStats, getStudentProgress } from '../lib/progressApi'
 import { getUserProfileById } from '../lib/userProfilesApi';
 import { getActivities } from '../lib/activitiesApi';
 import { getAllBadges, getStudentBadges } from '../lib/badgesApi';
+import { resolveBadgeIcon, BadgeIcon } from '../lib/badgeIcons';
 import { supabase } from '../lib/supabase';
 
 const StudentProgress = () => {
@@ -494,42 +495,51 @@ const StudentProgress = () => {
       const hasEarned = earnedBadgeIds.has(badge.id);
       const status = hasEarned ? 'EARNED' : 'LOCKED';
 
-      // Assign specific icons and colors based on badge type
-      let icon = '🏆';
+      // Resolve icon: emoji from DB, title-based fallback, or default 🏆
+      let icon = resolveBadgeIcon(badge);
       let color = status === 'EARNED' ? 'from-yellow-400 to-yellow-600' : 'from-gray-400 to-gray-500';
       let bgColor = status === 'EARNED' ? 'bg-yellow-50' : 'bg-gray-50';
       let animation = status === 'EARNED' ? 'animate-bounce-gentle' : '';
 
+      // Assign specific colors based on badge type
       if (badge.title.includes('First Step')) {
-        icon = '⭐';
         if (status === 'EARNED') { color = 'from-yellow-400 to-yellow-600'; bgColor = 'bg-yellow-50'; }
       } else if (badge.title.includes('Perfect Scorer')) {
-        icon = '🎯';
         if (status === 'EARNED') { color = 'from-green-400 to-green-600'; bgColor = 'bg-green-50'; }
       } else if (badge.title.includes('Academic Star')) {
-        icon = '📖';
         if (status === 'EARNED') { color = 'from-blue-400 to-blue-600'; bgColor = 'bg-blue-50'; }
-      } else if (badge.title.includes('Color Master')) {
-        icon = '🎨';
+      } else if (badge.title.includes('Color Master') || badge.title.includes('Color')) {
         if (status === 'EARNED') { color = 'from-purple-400 to-purple-600'; bgColor = 'bg-purple-50'; }
-      } else if (badge.title.includes('Match Finder')) {
-        icon = '🧩';
+      } else if (badge.title.includes('Match') || badge.title.includes('Matcher')) {
         if (status === 'EARNED') { color = 'from-pink-400 to-pink-600'; bgColor = 'bg-pink-50'; }
-      } else if (badge.title.includes('Number Ninja')) {
-        icon = '🔢';
+      } else if (badge.title.includes('Number')) {
         if (status === 'EARNED') { color = 'from-green-400 to-green-600'; bgColor = 'bg-green-50'; }
       } else if (badge.title.includes('Consistency Champ')) {
-        icon = '📅';
         if (status === 'EARNED') { color = 'from-indigo-400 to-indigo-600'; bgColor = 'bg-indigo-50'; }
       } else if (badge.title.includes('High Achiever')) {
-        icon = '🏅';
         if (status === 'EARNED') { color = 'from-orange-400 to-orange-600'; bgColor = 'bg-orange-50'; }
       } else if (badge.title.includes('Daily Life Hero')) {
-        icon = '🏠';
         if (status === 'EARNED') { color = 'from-teal-400 to-teal-600'; bgColor = 'bg-teal-50'; }
       } else if (badge.title.includes('All-Rounder')) {
-        icon = '🏆';
         if (status === 'EARNED') { color = 'from-gradient-400 to-gradient-600'; bgColor = 'bg-gradient-to-br from-yellow-50 to-orange-50'; }
+      } else if (badge.title.includes('Puzzle')) {
+        if (status === 'EARNED') { color = 'from-indigo-400 to-purple-600'; bgColor = 'bg-indigo-50'; }
+      } else if (badge.title.includes('Memory')) {
+        if (status === 'EARNED') { color = 'from-violet-400 to-purple-600'; bgColor = 'bg-violet-50'; }
+      } else if (badge.title.includes('Recognition') || badge.title.includes('Skill Spotter')) {
+        if (status === 'EARNED') { color = 'from-cyan-400 to-blue-600'; bgColor = 'bg-cyan-50'; }
+      } else if (badge.title.includes('Cash Register Starter')) {
+        if (status === 'EARNED') { color = 'from-emerald-400 to-teal-600'; bgColor = 'bg-emerald-50'; }
+      } else if (badge.title.includes('Counter Helper')) {
+        if (status === 'EARNED') { color = 'from-green-400 to-emerald-600'; bgColor = 'bg-green-50'; }
+      } else if (badge.title.includes('Checkout Champion')) {
+        if (status === 'EARNED') { color = 'from-amber-400 to-orange-500'; bgColor = 'bg-amber-50'; }
+      } else if (badge.title.includes('Cash Handling Master')) {
+        if (status === 'EARNED') { color = 'from-yellow-400 to-amber-600'; bgColor = 'bg-yellow-50'; }
+      } else if (badge.title.includes('Trusted Cashier')) {
+        if (status === 'EARNED') { color = 'from-rose-400 to-pink-600'; bgColor = 'bg-rose-50'; }
+      } else if (badge.title.includes('Dishwashing') || badge.title.includes('Floor Care') || badge.title.includes('Table') || badge.title.includes('Bed') || badge.title.includes('Plant Care')) {
+        if (status === 'EARNED') { color = 'from-teal-400 to-emerald-600'; bgColor = 'bg-teal-50'; }
       }
 
       return {
@@ -871,7 +881,7 @@ const StudentProgress = () => {
                   )}
                   
                   <div className={`w-12 h-12 bg-gradient-to-r ${badge.color} rounded-xl mx-auto mb-3 flex items-center justify-center text-2xl text-white shadow-lg ${badge.animation}`}>
-                    {badge.icon}
+                    <BadgeIcon icon={badge.icon} alt={badge.title} />
                   </div>
                   
                   <h3 className="font-bold text-gray-800 text-sm mb-2">

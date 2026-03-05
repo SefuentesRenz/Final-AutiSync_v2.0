@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AcademicCapIcon, MagnifyingGlassIcon, FunnelIcon, UsersIcon, CheckCircleIcon, UserIcon, ArrowLeftIcon, StarIcon, FireIcon } from '@heroicons/react/24/solid';
 import { supabase } from '../lib/supabase';
+import { BadgeIcon } from '../lib/badgeIcons';
 import { getStudentProgressStats } from '../lib/progressApi';
 
 const Students = () => {
@@ -902,7 +903,7 @@ const Students = () => {
                     )}
                     
                     {/* Badge icon */}
-                    <div className="text-4xl mb-2">{badge.icon}</div>
+                    <div className="text-4xl mb-2"><BadgeIcon icon={badge.icon} alt={badge.name} /></div>
                     
                     {/* Badge name */}
                     <h4 className="font-bold text-gray-800 text-sm mb-1">{badge.name}</h4>

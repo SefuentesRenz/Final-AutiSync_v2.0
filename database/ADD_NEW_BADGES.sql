@@ -45,11 +45,13 @@ INSERT INTO badges (title, description, icon_url, criteria) VALUES
 
 -- SOCIAL & DAILY LIFE SKILL BADGES (Skill-Based Progression)
 
--- 🧾 CASHIER GAME - Transaction Skills Line
+-- 🛒 CASHIER GAME - 5-Badge Progression Line
 INSERT INTO badges (title, description, icon_url, criteria) VALUES
-('Cashier Beginner', 'Complete the cashier game', '💳', '{"activity": "cashier", "count": 1}'),
-('Smart Shopper', 'Successfully finish multiple cashier rounds', '🧾', '{"activity": "cashier", "count": 3}'),
-('Checkout Champion', 'Demonstrate consistent correct transactions', '🏆', '{"activity": "cashier", "count": 5}');
+('Cash Register Starter', 'Successfully finish the Cashier Game once', '🛒', '{"activity": "cashier", "type": "completion", "count": 1}'),
+('Counter Helper', 'Finish 3 sets of the Cashier Game', '💵', '{"activity": "cashier", "type": "completion", "count": 3}'),
+('Checkout Champion', 'Get a perfect score in the Cashier Game at least 3 times', '🧾', '{"activity": "cashier", "type": "perfect", "count": 3}'),
+('Cash Handling Master', 'Get a perfect score in the Cashier Game at least 5 times', '💰', '{"activity": "cashier", "type": "perfect", "count": 5}'),
+('Trusted Cashier', 'Get a perfect score in the Cashier Game at least 10 times — Ultimate Mastery!', '🏪', '{"activity": "cashier", "type": "perfect", "count": 10}');
 
 -- 💰 MONEY VALUE GAME - Financial Awareness Line
 INSERT INTO badges (title, description, icon_url, criteria) VALUES
@@ -90,7 +92,7 @@ WHERE title IN (
   'Puzzle Starter', 'Puzzle Thinker', 'Puzzle Mastermind',
   'Match Maker', 'Logic Matcher', 'Perfect Matcher',
   'Memory Observer', 'Memory Builder', 'Memory Champion',
-  'Cashier Beginner', 'Smart Shopper', 'Checkout Champion',
+  'Cash Register Starter', 'Counter Helper', 'Checkout Champion', 'Cash Handling Master', 'Trusted Cashier',
   'Money Explorer', 'Value Identifier', 'Money Smart Star',
   'First Greeting', 'Friendly Speaker', 'Social Confidence Star',
   'Hygiene Starter', 'Clean Habit Builder', 'Hygiene Hero',

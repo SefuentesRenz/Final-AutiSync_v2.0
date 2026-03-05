@@ -1,4 +1,5 @@
 import React from 'react';
+import { resolveBadgeIcon, BadgeIcon } from '../lib/badgeIcons';
 
 const BadgeDisplay = ({ badge, size = 'medium', animated = true, showDetails = true }) => {
   const sizeClasses = {
@@ -65,16 +66,7 @@ const BadgeDisplay = ({ badge, size = 'medium', animated = true, showDetails = t
       
       <div className="text-center text-white relative z-10">
         <div className={`${iconSizes[size]} mb-3 ${animated ? 'animate-bounce-gentle' : ''} drop-shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
-          {/* Show icon_url (emoji or image) if present, else fallback to badge.icon */}
-          {badge.icon_url ? (
-            badge.icon_url.startsWith('http') ? (
-              <img src={badge.icon_url} alt={badge.name} className="inline w-auto h-10 max-h-12 mx-auto" />
-            ) : (
-              <span>{badge.icon_url}</span>
-            )
-          ) : (
-            <span>{badge.icon}</span>
-          )}
+          <BadgeIcon icon={resolveBadgeIcon(badge)} alt={badge.name} />
         </div>
         <h3 className={`${titleSizes[size]} font-bold mb-2 drop-shadow-sm`}>
           {badge.name}

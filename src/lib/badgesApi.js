@@ -368,13 +368,28 @@ export async function checkAndAwardBadges(studentId) {
       
       // SOCIAL & DAILY LIFE SKILL BADGES (Progression-Based)
       else if (criteria.activity === 'cashier' && criteria.count) {
-        // Cashier badges: Cashier Beginner, Smart Shopper, Checkout Champion
-        const cashierActivities = progress.filter(p => 
+        // Cashier Game badges (5-badge progression):
+        //   completion: Cash Register Starter (1×), Counter Helper (3×)
+        //   perfect:    Checkout Champion (3× perfect), Cash Handling Master (5× perfect), Trusted Cashier (10× perfect)
+        const allCashierActivities = progress.filter(p => 
           p.activities?.title?.toLowerCase().includes('cashier') ||
           p.activity_name?.toLowerCase().includes('cashier')
         );
-        shouldAward = cashierActivities.length >= criteria.count;
-        console.log(`🏆 Cashier check: count=${cashierActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+
+        if (criteria.type === 'perfect') {
+          // Perfect score badges — Cashier Game max is 50 points
+          const perfectCashierActivities = allCashierActivities.filter(p => {
+            const pScore = Number(p.score) || 0;
+            const pTotal = Number(p.total_questions) || Number(p.total) || 50;
+            return pScore >= 50 || pScore >= pTotal;
+          });
+          shouldAward = perfectCashierActivities.length >= criteria.count;
+          console.log(`🏆 Cashier PERFECT check: perfectCount=${perfectCashierActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+        } else {
+          // Completion badges (any finish counts)
+          shouldAward = allCashierActivities.length >= criteria.count;
+          console.log(`🏆 Cashier COMPLETION check: count=${allCashierActivities.length}, required=${criteria.count}, award=${shouldAward}`);
+        }
       }
       else if (criteria.activity === 'money' && criteria.count) {
         // Money badges: Money Explorer, Value Identifier, Money Smart Star

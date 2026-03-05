@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Confetti from 'react-confetti';
+import { BadgeIcon } from '../lib/badgeIcons';
 import { 
   calculateEarnedBadges, 
   saveBadgesToStorage, 
@@ -4409,7 +4410,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     }
     
     // Calculate earned badges with enhanced statistics
-    let badges = calculateSessionBadges(score, isStreetGame ? 100 : (activity === 'Cashier Game' ? 50 : total));
+    let badges = calculateSessionBadges(score, isStreetGame ? 100 : (activity === 'Cashier Game' ? 50 : isHygieneGame ? 5 : isMoneyGame ? 50 : total));
     
     // Add special memory game badges
     if (activity === "Visual Memory Challenge" || isMemoryGame) {
@@ -4452,29 +4453,48 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
     
     // Add special cashier game badges
     if (activity === "Cashier Game") {
-      if (cashierScore >= 45) {
+      // 🛒 Cash Register Starter — always awarded for finishing the game
+      badges.push({
+        name: "Cash Register Starter",
+        description: "Successfully finished the Cashier Game!",
+        icon: "🛒",
+        rarity: "bronze",
+        category: "Daily Life Skills",
+        gradient: "from-emerald-400 via-emerald-500 to-teal-600",
+        points: 15
+      });
+
+      if (cashierScore >= 50) {
+        // 🧾 Perfect score session indicator
         badges.push({
-          name: "Master Cashier",
-          description: "Earned 45+ out of 50 points as a cashier!",
-          icon: "🏆",
+          name: "Checkout Champion",
+          description: "Perfect score! You got 50 out of 50 points!",
+          icon: "🧾",
           rarity: "gold",
-          category: "Social Skills"
+          category: "Daily Life Skills",
+          gradient: "from-amber-400 via-yellow-500 to-orange-500",
+          points: 50
         });
       } else if (cashierScore >= 35) {
+        // 💵 Great score indicator
         badges.push({
-          name: "Senior Cashier",
+          name: "Counter Helper",
           description: "Earned 35+ out of 50 points as a cashier!",
-          icon: "🥈",
+          icon: "💵",
           rarity: "silver",
-          category: "Social Skills"
+          category: "Daily Life Skills",
+          gradient: "from-green-400 via-green-500 to-emerald-600",
+          points: 30
         });
       } else if (cashierScore >= 20) {
         badges.push({
-          name: "Junior Cashier",
-          description: "Earned 20+ out of 50 points as a cashier!",
-          icon: "🥉",
+          name: "Cash Handling Master",
+          description: "Earned 20+ out of 50 points — keep practicing!",
+          icon: "💰",
           rarity: "bronze",
-          category: "Social Skills"
+          category: "Daily Life Skills",
+          gradient: "from-sky-400 via-blue-500 to-indigo-500",
+          points: 20
         });
       }
     }
@@ -4606,7 +4626,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
       // No badges, proceed to complete
 
       // Determine the correct total for this activity type
-      const choreTotal = isStreetGame ? 100 : (activity === 'Cashier Game' ? 50 : isMoneyGame ? 50 : isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total);
+      const choreTotal = isStreetGame ? 100 : (activity === 'Cashier Game' ? 50 : isMoneyGame ? 50 : isHygieneGame ? 5 : isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total);
 
       // For memory game, pass detailed score
       if (isMemoryGame || activity === "Visual Memory Challenge") {
@@ -6751,7 +6771,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                     
                     <div className="text-center text-white relative z-10">
                       <div className="text-5xl mb-3 animate-bounce-gentle drop-shadow-lg transform group-hover:scale-110 transition-transform duration-300">
-                        {badge.icon}
+                        <BadgeIcon icon={badge.icon} alt={badge.name} className="w-12 h-12" />
                       </div>
                       <h3 className="text-xl font-bold mb-2 drop-shadow-sm">
                         {badge.name}
@@ -6772,7 +6792,7 @@ const Flashcards = ({ category, difficulty, activity, onComplete }) => {
                     setShowBadgeModal(false);
 
                     // Determine the correct total for this activity type
-                    const badgeChoreTotal = isStreetGame ? 100 : (activity === 'Cashier Game' ? 50 : isMoneyGame ? 50 : isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total);
+                    const badgeChoreTotal = isStreetGame ? 100 : (activity === 'Cashier Game' ? 50 : isMoneyGame ? 50 : isHygieneGame ? 5 : isChoreGame ? (questions.find(q => q.choreId === currentChoreId)?.steps?.length || 3) : total);
 
                     // For memory game, pass detailed score
                     if (isMemoryGame || activity === "Visual Memory Challenge") {
